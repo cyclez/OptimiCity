@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OptimiCity - Fight the Algorithm</title>
+    <meta name="description"
+        content="A radical inversion of SimCity - fight algorithmic authoritarianism as a grassroots insurgent">
+    <meta name="keywords" content="game, simulation, resistance, AI, urbanism, democracy">
+    <link rel="stylesheet" href="modules/styles.css">
+</head>
+
+<body>
+    <!-- Main Game Container -->
+    <div id="gameContainer">
+        <!-- City View - Main Game Area -->
+        <div id="cityView">
+            <!-- Status Bar Component -->
+            <div id="statusBar">
+                <div class="status-section">
+                    <div class="status-item">
+                        <span class="status-label">Community Power:</span>
+                        <span class="status-value" id="communityPower">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Heat Level:</span>
+                        <span class="status-value" id="heatLevel">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Active Citizens:</span>
+                        <span class="status-value" id="activeCitizens">1</span>
+                    </div>
+                </div>
+
+                <div class="timer-section">
+                    <div class="game-timer">
+                        <span class="timer-label">Time Remaining:</span>
+                        <span class="timer-value" id="gameTimer">15:00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Log Component -->
+            <div id="gameLog">
+                <div class="log-header">📡 RESISTANCE NETWORK</div>
+                <div id="logEntries">
+                    <div class="log-entry log-system">Welcome to OptimiCity. The resistance begins now.</div>
+                </div>
+            </div>
+
+            <!-- Action Panel Component -->
+            <div id="actionPanel">
+                <div class="panel-header">
+                    <h3>🏴 RESISTANCE ACTIONS</h3>
+                    <div class="selected-neighborhood">
+                        Target: <span id="selectedNeighborhoodName">Select a neighborhood</span>
+                    </div>
+                </div>
+
+                <div class="action-grid">
+                    <!-- Direct Action Category -->
+                    <div class="action-category">
+                        <div class="category-header">
+                            <div class="category-title">DIRECT ACTION</div>
+                        </div>
+                        <div class="action-buttons">
+                            <button class="action-btn" data-action="occupy">
+                                <span class="action-name">Occupy Building</span>
+                                <span class="action-stats">+8 Power, +15 Heat</span>
+                            </button>
+                            <button class="action-btn" data-action="blockDemo">
+                                <span class="action-name">Block Demolition</span>
+                                <span class="action-stats">+10 Power, +20 Heat</span>
+                            </button>
+                            <button class="action-btn" data-action="protest">
+                                <span class="action-name">Organize Protest</span>
+                                <span class="action-stats">+6 Power, +12 Heat</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Cultural Resistance Category -->
+                    <div class="action-category">
+                        <div class="category-header">
+                            <div class="category-title">CULTURAL RESISTANCE</div>
+                        </div>
+                        <div class="action-buttons">
+                            <button class="action-btn" data-action="streetArt">
+                                <span class="action-name">Street Art</span>
+                                <span class="action-stats">+4 Power, +6 Heat</span>
+                            </button>
+                            <button class="action-btn" data-action="garden">
+                                <span class="action-name">Community Garden</span>
+                                <span class="action-stats">+5 Power, +3 Heat</span>
+                            </button>
+                            <button class="action-btn" data-action="festival">
+                                <span class="action-name">Block Festival</span>
+                                <span class="action-stats">+7 Power, +8 Heat</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Infrastructure Hack Category -->
+                    <div class="action-category">
+                        <div class="category-header">
+                            <div class="category-title">INFRASTRUCTURE HACK</div>
+                        </div>
+                        <div class="action-buttons">
+                            <button class="action-btn" data-action="hackCams">
+                                <span class="action-name">Disable Cameras</span>
+                                <span class="action-stats">+6 Power, +10 Heat</span>
+                            </button>
+                            <button class="action-btn" data-action="meshNet">
+                                <span class="action-name">Mesh Network</span>
+                                <span class="action-stats">+5 Power, +7 Heat</span>
+                            </button>
+                            <button class="action-btn" data-action="pirateBroad">
+                                <span class="action-name">Pirate Broadcast</span>
+                                <span class="action-stats">+8 Power, +14 Heat</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Organizing Category -->
+                    <div class="action-category">
+                        <div class="category-header">
+                            <div class="category-title">ORGANIZING</div>
+                        </div>
+                        <div class="action-buttons">
+                            <button class="action-btn" data-action="meeting">
+                                <span class="action-name">Secret Meeting</span>
+                                <span class="action-stats">+4 Power, +2 Heat</span>
+                            </button>
+                            <button class="action-btn" data-action="recruit">
+                                <span class="action-name">Recruit Allies</span>
+                                <span class="action-stats">+6 Power, +4 Heat</span>
+                            </button>
+                            <button class="action-btn" data-action="intel">
+                                <span class="action-name">Gather Intel</span>
+                                <span class="action-stats">+3 Power, +1 Heat</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Neighborhoods will be dynamically rendered here -->
+        </div>
+
+        <!-- AI Mayor Interface -->
+        <div id="aiMayorInterface">
+            <div class="ai-header">
+                <div class="ai-title">OPTIMIZATION PROTOCOL</div>
+            </div>
+
+            <div class="ai-section">
+                <div class="ai-section-title">SYSTEM METRICS</div>
+                <div class="metric-row">
+                    <span>City Efficiency:</span>
+                    <span class="metric-value" id="cityEfficiency">87%</span>
+                </div>
+                <div class="metric-row">
+                    <span>Dissent Level:</span>
+                    <span class="metric-value" id="dissentLevel">5%</span>
+                </div>
+                <div class="metric-row">
+                    <span>Surveillance:</span>
+                    <span class="metric-value" id="surveillance">94%</span>
+                </div>
+            </div>
+
+            <div class="ai-section">
+                <div class="ai-section-title">THREAT ASSESSMENT</div>
+                <div id="threatLevel">MINIMAL</div>
+            </div>
+
+            <div class="ai-section">
+                <div class="ai-section-title">RESPONSE LOG</div>
+                <div id="aiResponseLog">
+                    <div>System initialized - monitoring citizen behavior patterns</div>
+                </div>
+            </div>
+
+            <!-- Additional AI sections can be added here -->
+            <div class="ai-section">
+                <div class="ai-section-title">OPTIMIZATION QUEUE</div>
+                <div id="optimizationQueue" style="font-size: 10px;">
+                    <div>Market District: Efficiency scan scheduled</div>
+                    <div>Riverside: Property value analysis pending</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameOverModal">
+        <div class="modal-content">
+            <h2 id="gameOverTitle">Game Over</h2>
+            <p id="gameOverMessage">The resistance continues...</p>
+            <button class="modal-btn" id="restartBtn">Play Again</button>
+            <button class="modal-btn" id="shareBtn" style="background: #3498db;">Share Result</button>
+        </div>
+    </div>
+
+    <!-- Debug Panel (only visible in development) -->
+    <div id="debugPanel"
+        style="display: none; position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 4px; font-size: 10px; z-index: 1001;">
+        <div>Debug Mode Active</div>
+        <div id="debugInfo"></div>
+    </div>
+
+    <!-- Load JavaScript Modules -->
+    <!-- Core game logic and state management -->
+    <script src="modules/game-core.js"></script>
+
+    <!-- Neighborhood system -->
+    <script src="modules/neighborhoods.js"></script>
+
+    <!-- Action system -->
+    <script src="modules/actions.js"></script>
+
+    <!-- AI Mayor system -->
+    <script src="modules/ai-mayor.js"></script>
+
+    <!-- AI Citizens system -->
+    <script src="modules/ai-citizens.js"></script>
+
+    <!-- UI components and updates -->
+    <script src="modules/ui-components.js"></script>
+
+    <!-- Game Initialization Script -->
+    <script>
+        // Global game initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🏴 OptimiCity - Modular Architecture Loading...');
+
+            // Check if all modules are loaded
+            const requiredModules = [
+                'GameCore', 'Neighborhoods', 'Actions',
+                'AIMayor', 'AICitizens', 'UIComponents'
+            ];
+
+            const missingModules = requiredModules.filter(module =>
+                typeof window[module] === 'undefined'
+            );
+
+            if (missingModules.length > 0) {
+                console.error('❌ Missing modules:', missingModules);
+                document.body.innerHTML = `
+                    <div style="display: flex; justify-content: center; align-items: center; height: 100vh; color: white; text-align: center; font-family: 'Courier New', monospace;">
+                        <div>
+                            <h2>⚠️ MODULE LOADING ERROR</h2>
+                            <p>Missing modules: ${missingModules.join(', ')}</p>
+                            <p>Please check that all module files are properly loaded.</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Test Ollama connection
+            fetch('http://localhost:11434/api/tags')
+                .then(response => response.ok ?
+                    console.log('✅ Ollama connected') :
+                    console.warn('⚠️ Ollama not available, using fallback responses'))
+                .catch(() => console.warn('⚠️ Ollama not available, using fallback responses'));
+
+            // Initialize all game systems
+            try {
+                // Initialize core game
+                GameCore.init();
+
+                // Initialize neighborhoods
+                Neighborhoods.init();
+
+                // Initialize action system
+                Actions.init();
+
+                // Initialize AI systems
+                AIMayor.init();
+                AICitizens.init();
+
+                // Initialize UI
+                UIComponents.init();
+
+                // Add event listeners for action buttons
+                document.querySelectorAll('.action-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const actionType = e.currentTarget.dataset.action;
+                        if (actionType) {
+                            Actions.performAction(actionType);
+                        }
+                    });
+                });
+
+                // Add restart button listener
+                document.getElementById('restartBtn').addEventListener('click', () => {
+                    GameCore.restartGame();
+                });
+
+                // Add share button listener (future feature)
+                document.getElementById('shareBtn').addEventListener('click', () => {
+                    UIComponents.shareGameResult();
+                });
+
+                // Add keyboard shortcuts
+                document.addEventListener('keydown', (e) => {
+                    if (!GameCore.getState().isActive) return;
+
+                    switch (e.key) {
+                        case '1':
+                        case '2':
+                        case '3':
+                        case '4':
+                            const neighborhoodIndex = parseInt(e.key) - 1;
+                            const neighborhoods = Neighborhoods.getAll();
+                            if (neighborhoods[neighborhoodIndex]) {
+                                Neighborhoods.selectNeighborhood(neighborhoods[neighborhoodIndex].id);
+                            }
+                            break;
+                        case 'r':
+                        case 'R':
+                            if (e.ctrlKey || e.metaKey) {
+                                e.preventDefault();
+                                GameCore.restartGame();
+                            }
+                            break;
+                        case 'Escape':
+                            // Toggle debug panel
+                            const debugPanel = document.getElementById('debugPanel');
+                            debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
+                            break;
+                    }
+                });
+
+                // Start the game
+                GameCore.startGame();
+
+                // Render initial neighborhoods
+                Neighborhoods.renderAll();
+
+                // Auto-select first threatened neighborhood immediately
+                setTimeout(() => {
+                    Neighborhoods.autoSelectFirstThreatened();
+                    // Force update button states after selection
+                    if (window.Actions) {
+                        Actions.updateActionButtonStates();
+                    }
+                }, 500);
+
+                console.log('🎮 OptimiCity initialized successfully!');
+                console.log('💡 Keyboard shortcuts: 1-4 (select neighborhoods), Ctrl+R (restart), Esc (debug)');
+
+                // Debug mode detection
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('debug') === 'true') {
+                    document.getElementById('debugPanel').style.display = 'block';
+                    setInterval(() => {
+                        const state = GameCore.getState();
+                        document.getElementById('debugInfo').innerHTML = `
+                            <div>Power: ${state.communityPower} | Heat: ${state.heatLevel}</div>
+                            <div>Selected: ${state.selectedNeighborhood || 'none'}</div>
+                            <div>Active: ${state.isActive}</div>
+                            <div>Cooldown: ${state.actionCooldown}</div>
+                        `;
+                    }, 100);
+                }
+
+            } catch (error) {
+                console.error('❌ Game initialization failed:', error);
+                document.body.innerHTML = `
+                    <div style="display: flex; justify-content: center; align-items: center; height: 100vh; color: white; text-align: center; font-family: 'Courier New', monospace;">
+                        <div>
+                            <h2>⚠️ INITIALIZATION ERROR</h2>
+                            <p>Failed to start OptimiCity</p>
+                            <p style="font-size: 12px; color: #999;">${error.message}</p>
+                            <button onclick="location.reload()" style="padding: 10px 20px; margin-top: 20px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">Reload Game</button>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+
+        // Global error handler
+        window.addEventListener('error', (e) => {
+            console.error('💥 Runtime error:', e.error);
+            // In production, you might want to send this to an error tracking service
+        });
+
+        // Performance monitoring (optional)
+        if ('performance' in window) {
+            window.addEventListener('load', () => {
+                setTimeout(() => {
+                    const perfData = performance.getEntriesByType('navigation')[0];
+                    console.log(`⚡ Page loaded in ${Math.round(perfData.loadEventEnd - perfData.fetchStart)}ms`);
+                }, 0);
+            });
+        }
+
+        // Service Worker registration (for future offline support)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Uncomment when service worker is implemented
+                // navigator.serviceWorker.register('/sw.js')
+                //     .then(registration => console.log('SW registered'))
+                //     .catch(error => console.log('SW registration failed'));
+            });
+        }
+    </script>
+
+    <!-- Analytics (if needed) -->
+    <!-- <script>
+        // Add your analytics code here
+        // Example: Google Analytics, Plausible, etc.
+    </script> -->
+
+</body>
+
+</html>
