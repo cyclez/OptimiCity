@@ -67,7 +67,7 @@ window.Neighborhoods = (function () {
             window.UIComponents.addLogEntry(`Selected ${neighborhood.name} for resistance action.`);
         }
 
-        // Update action button states after selection
+        // Update action button states after selection - this is crucial!
         if (window.Actions) {
             window.Actions.updateActionButtonStates();
         }

@@ -39,10 +39,16 @@ window.UIComponents = (function () {
         const communityPowerEl = document.getElementById('communityPower');
         const heatLevelEl = document.getElementById('heatLevel');
         const activeCitizensEl = document.getElementById('activeCitizens');
+        const totalPopulationEl = document.getElementById('totalPopulation');
+        const citizensImprisonedEl = document.getElementById('citizensImprisoned');
+        const citizensKilledEl = document.getElementById('citizensKilled');
 
         if (communityPowerEl) communityPowerEl.textContent = Math.round(gameState.communityPower);
         if (heatLevelEl) heatLevelEl.textContent = Math.round(gameState.heatLevel);
-        if (activeCitizensEl) activeCitizensEl.textContent = gameState.activeCitizens;
+        if (activeCitizensEl) activeCitizensEl.textContent = gameState.activeCitizens.toLocaleString();
+        if (totalPopulationEl) totalPopulationEl.textContent = (gameState.totalPopulation / 1000000).toFixed(1) + 'M';
+        if (citizensImprisonedEl) citizensImprisonedEl.textContent = gameState.citizensImprisoned.toLocaleString();
+        if (citizensKilledEl) citizensKilledEl.textContent = gameState.citizensKilled.toLocaleString();
     }
 
     // Update AI Mayor metrics

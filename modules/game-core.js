@@ -8,17 +8,20 @@ window.GameCore = (function () {
     let gameState = {
         isActive: false,
         startTime: null,
-        duration: 15 * 60 * 1000, // 15 minutes
+        duration: 30 * 60 * 1000, // 30 minutes
         communityPower: 0,
         heatLevel: 0,
-        activeCitizens: 1,
+        activeCitizens: Math.floor(Math.random() * (300 - 100 + 1)) + 100, // Random 100-300
+        totalPopulation: Math.floor(Math.random() * (20000000 - 5000000 + 1)) + 5000000, // Random 5M-20M
+        citizensImprisoned: 0,
+        citizensKilled: 0,
         selectedNeighborhood: null,
-        actionCooldown: false,
+        actionCooldowns: {}, // Replace actionCooldown: false with this
         neighborhoods: [
-            { id: 'market', name: 'Market District', resistance: 5, gentrificationTimer: 5, threatened: true, population: 1200 },
-            { id: 'riverside', name: 'Riverside', resistance: 12, gentrificationTimer: 10, threatened: true, population: 850 },
-            { id: 'oldtown', name: 'Old Town', resistance: 25, gentrificationTimer: 10, threatened: false, population: 950 },
-            { id: 'industrial', name: 'Industrial Quarter', resistance: 8, gentrificationTimer: 15, threatened: true, population: 600 }
+            { id: 'market', name: 'Market District', resistance: 5, gentrificationTimer: 10, threatened: true, population: 1200 },
+            { id: 'riverside', name: 'Riverside', resistance: 12, gentrificationTimer: 18, threatened: true, population: 850 },
+            { id: 'oldtown', name: 'Old Town', resistance: 25, gentrificationTimer: 25, threatened: false, population: 950 },
+            { id: 'industrial', name: 'Industrial Quarter', resistance: 8, gentrificationTimer: 8, threatened: true, population: 600 }
         ]
     };
 
@@ -161,27 +164,30 @@ window.GameCore = (function () {
         gameState.startTime = null;
         gameState.communityPower = 0;
         gameState.heatLevel = 0;
-        gameState.activeCitizens = 1;
+        gameState.activeCitizens = Math.floor(Math.random() * (300 - 100 + 1)) + 100; // Re-randomize
+        gameState.totalPopulation = Math.floor(Math.random() * (20000000 - 5000000 + 1)) + 5000000; // Re-randomize
+        gameState.citizensImprisoned = 0;
+        gameState.citizensKilled = 0;
         gameState.selectedNeighborhood = null;
-        gameState.actionCooldown = false;
+        gameState.actionCooldowns = {};
 
         // Reset neighborhoods
         gameState.neighborhoods.forEach(n => {
             if (n.id === 'market') {
                 n.resistance = 5;
-                n.gentrificationTimer = 6.5;
+                n.gentrificationTimer = 10;
                 n.threatened = true;
             } else if (n.id === 'riverside') {
                 n.resistance = 12;
-                n.gentrificationTimer = 10.5;
+                n.gentrificationTimer = 18;
                 n.threatened = true;
             } else if (n.id === 'oldtown') {
                 n.resistance = 25;
-                n.gentrificationTimer = 18;
+                n.gentrificationTimer = 25;
                 n.threatened = false;
             } else if (n.id === 'industrial') {
                 n.resistance = 8;
-                n.gentrificationTimer = 4.2;
+                n.gentrificationTimer = 8;
                 n.threatened = true;
             }
         });
@@ -209,7 +215,7 @@ window.GameCore = (function () {
             UIComponents.addLogEntry('Select a neighborhood and choose your first action.', 'system');
         }
 
-        // Start timer
+        // Start timer - aggiorna ogni secondo esatto
         timerId = setInterval(updateTimer, 1000);
 
         // Start game loop
@@ -298,8 +304,36 @@ window.GameCore = (function () {
             gameState.heatLevel = Math.max(0, Math.min(100, gameState.heatLevel + change));
         },
 
-        setActionCooldown: function (cooldown) {
-            gameState.actionCooldown = cooldown;
+        updateActiveCitizens: function (change) {
+            gameState.activeCitizens = Math.max(0, gameState.activeCitizens + change);
+        },
+
+        updateCitizensImprisoned: function (change) {
+            gameState.citizensImprisoned = Math.max(0, gameState.citizensImprisoned + change);
+        },
+
+        updateCitizensKilled: function (change) {
+            gameState.citizensKilled = Math.max(0, gameState.citizensKilled + change);
+            // Rimuovi dalla popolazione totale
+            gameState.totalPopulation = Math.max(0, gameState.totalPopulation - change);
+        },
+
+        setActionCooldown: function (cooldownKey, duration) {
+            gameState.actionCooldowns[cooldownKey] = Date.now() + duration;
+        },
+
+        clearActionCooldown: function (cooldownKey) {
+            delete gameState.actionCooldowns[cooldownKey];
+        },
+
+        isActionOnCooldown: function (cooldownKey) {
+            const cooldownEnd = gameState.actionCooldowns[cooldownKey];
+            return cooldownEnd && Date.now() < cooldownEnd;
+        },
+
+        getActionCooldownRemaining: function (cooldownKey) {
+            const cooldownEnd = gameState.actionCooldowns[cooldownKey];
+            return cooldownEnd ? Math.max(0, cooldownEnd - Date.now()) : 0;
         },
 
         selectNeighborhood: function (neighborhoodId) {

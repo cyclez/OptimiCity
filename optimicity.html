@@ -31,12 +31,24 @@
                         <span class="status-label">Active Citizens:</span>
                         <span class="status-value" id="activeCitizens">1</span>
                     </div>
+                    <div class="status-item">
+                        <span class="status-label">Population:</span>
+                        <span class="status-value" id="totalPopulation">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Imprisoned:</span>
+                        <span class="status-value" id="citizensImprisoned" style="color: #f39c12;">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Killed:</span>
+                        <span class="status-value" id="citizensKilled" style="color: #e74c3c;">0</span>
+                    </div>
                 </div>
 
                 <div class="timer-section">
                     <div class="game-timer">
                         <span class="timer-label">Time Remaining:</span>
-                        <span class="timer-value" id="gameTimer">15:00</span>
+                        <span class="timer-value" id="gameTimer">--:--</span>
                     </div>
                 </div>
             </div>
@@ -362,7 +374,7 @@
                             <div>Power: ${state.communityPower} | Heat: ${state.heatLevel}</div>
                             <div>Selected: ${state.selectedNeighborhood || 'none'}</div>
                             <div>Active: ${state.isActive}</div>
-                            <div>Cooldown: ${state.actionCooldown}</div>
+                            <div>Cooldowns: ${Object.keys(state.actionCooldowns).length}</div>
                         `;
                     }, 100);
                 }

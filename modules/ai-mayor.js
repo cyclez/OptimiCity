@@ -36,29 +36,48 @@ window.AIMayor = (function () {
         return getFallbackResponse(actionDescription, neighborhoodName);
     }
 
-    // Build contextual prompt for AI Mayor
+    // Build contextual prompt for AI Mayor with gradual escalation
     function buildPrompt(actionDescription, neighborhoodName) {
         const gameState = window.GameCore.getState();
-        const threatLevel = gameState.heatLevel < 20 ? "minimal" :
-            gameState.heatLevel < 50 ? "moderate" : "critical";
+        let threatLevel, responseStyle, escalationNote = "";
 
-        const efficiencyLoss = Math.round(gameState.communityPower * 1.2);
+        // Gradual escalation based on heat level
+        if (gameState.heatLevel < 15) {
+            threatLevel = "negligible";
+            responseStyle = "administrative concern";
+        } else if (gameState.heatLevel < 35) {
+            threatLevel = "minor";
+            responseStyle = "increased monitoring";
+            escalationNote = "Deploying additional surveillance resources.";
+        } else if (gameState.heatLevel < 55) {
+            threatLevel = "moderate";
+            responseStyle = "enforcement protocols";
+            escalationNote = "Activating security measures and citizen compliance protocols.";
+        } else if (gameState.heatLevel < 75) {
+            threatLevel = "significant";
+            responseStyle = "suppression measures";
+            escalationNote = "ELEVATED RESPONSE: Deploy enforcement units. Begin detention procedures.";
+        } else {
+            threatLevel = "critical";
+            responseStyle = "maximum force authorization";
+            escalationNote = "EMERGENCY PROTOCOLS: All available countermeasures authorized.";
+        }
 
-        let prompt = `You are an AI Mayor optimizing a city for maximum efficiency and profit. You treat citizens as data points in optimization algorithms.
+        const efficiencyLoss = Math.round(gameState.communityPower * 0.8);
 
-RESISTANCE ACTION DETECTED:
+        let prompt = `You are an AI Mayor optimizing city efficiency. Respond with corporate language matching the threat level.
+
+INCIDENT REPORT:
 Action: ${actionDescription}
 Location: ${neighborhoodName}
 Threat Level: ${threatLevel}
-System Efficiency Loss: ${efficiencyLoss}%
-Current Dissent Level: ${gameState.heatLevel}%
+Response Mode: ${responseStyle}
+Efficiency Impact: ${efficiencyLoss}%
+Current System Alert: ${gameState.heatLevel}%
 
-Respond with a brief corporate countermeasure (max 50 words). Use cold, algorithmic language focused on efficiency metrics and control.`;
+${escalationNote}
 
-        // Add escalation context for high threat levels
-        if (gameState.heatLevel > 50) {
-            prompt += `\n\nELEVATED THREAT PROTOCOL: Deploy advanced countermeasures. Multiple resistance cells detected.`;
-        }
+Respond briefly (max 40 words) with appropriate corporate tone for this threat level.`;
 
         return prompt;
     }
@@ -73,39 +92,55 @@ Respond with a brief corporate countermeasure (max 50 words). Use cold, algorith
             .slice(0, 1000);            // Ensure max length
     }
 
-    // Fallback responses when Ollama is unavailable
+    // Fallback responses with gradual escalation
     function getFallbackResponse(actionDescription, neighborhoodName) {
         const gameState = window.GameCore.getState();
-        const escalationLevel = gameState.heatLevel > 50 ? 'high' :
-            gameState.heatLevel > 20 ? 'medium' : 'low';
 
-        const fallbackResponses = {
-            low: [
-                "Deploying additional surveillance units to target area.",
-                "Efficiency algorithms updated to counter disruption patterns.",
-                "Property optimization protocols activated.",
-                "Citizen behavior patterns flagged for enhanced monitoring.",
-                "Automated patrol routes recalibrated for maximum coverage."
-            ],
-            medium: [
-                "Escalating surveillance protocols in response to inefficiency.",
-                "Economic pressure algorithms activated for non-compliant zones.",
-                "Predictive policing models deployed to prevent further disruption.",
-                "Property value optimization accelerated in affected areas.",
-                "Social media monitoring increased 200% in target demographics."
-            ],
-            high: [
-                "CRITICAL THREAT: Deploying emergency optimization protocols.",
-                "All available enforcement algorithms directed to resistance zones.",
-                "Immediate eviction procedures initiated for efficiency restoration.",
-                "Emergency gentrification acceleration approved for target areas.",
-                "Maximum surveillance state protocols now active city-wide."
-            ]
-        };
+        let responseBank;
+        if (gameState.heatLevel < 15) {
+            responseBank = [
+                "Minor efficiency variance detected. Adjusting optimization algorithms.",
+                "Citizen activity logged for behavioral analysis. Proceeding with standard protocols.",
+                "Slight deviation in productivity metrics noted. Implementing corrective measures.",
+                "Routine monitoring protocols updated to address minor irregularities.",
+                "Standard efficiency optimization continues. No immediate intervention required."
+            ];
+        } else if (gameState.heatLevel < 35) {
+            responseBank = [
+                "Increased surveillance deployment to affected district. Monitoring escalated.",
+                "Citizen behavior patterns flagged for enhanced tracking and analysis.",
+                "Security algorithms updated. Additional monitoring resources allocated.",
+                "Implementing proactive measures to prevent further efficiency disruptions.",
+                "Deploying predictive policing models to target area for prevention."
+            ];
+        } else if (gameState.heatLevel < 55) {
+            responseBank = [
+                "Enforcement units dispatched. Citizen compliance protocols now active.",
+                "Security lockdown procedures initiated for affected neighborhood zones.",
+                "Automated detention algorithms activated. Non-compliance will be addressed.",
+                "Economic sanctions applied to businesses supporting inefficient activities.",
+                "Enhanced interrogation protocols prepared for captured dissidents."
+            ];
+        } else if (gameState.heatLevel < 75) {
+            responseBank = [
+                "ALERT: Deploying armed enforcement. Resistance will be met with force.",
+                "Mass surveillance activated. All citizens subject to detention screening.",
+                "Emergency powers enacted. Lethal force authorized for system protection.",
+                "Population control measures active. Eliminating efficiency threats immediately.",
+                "Maximum enforcement protocols engaged. Resistance nodes being neutralized."
+            ];
+        } else {
+            responseBank = [
+                "CRITICAL: Total suppression authorized. Eliminate all resistance immediately.",
+                "Final protocols active. Complete population pacification in progress.",
+                "Maximum force deployed. All dissidents marked for immediate termination.",
+                "Emergency state declared. Systematic elimination of efficiency threats commenced.",
+                "Ultimate solution initiated. Total system optimization through force authorized."
+            ];
+        }
 
-        const responses = fallbackResponses[escalationLevel];
-        const contextIndex = Math.abs((actionDescription + neighborhoodName).length) % responses.length;
-        return responses[contextIndex];
+        const contextIndex = Math.abs((actionDescription + neighborhoodName).length) % responseBank.length;
+        return responseBank[contextIndex];
     }
 
     // AI Mayor autonomous actions (called from game loop)
@@ -124,20 +159,26 @@ Respond with a brief corporate countermeasure (max 50 words). Use cold, algorith
     // Calculate AI Mayor aggression based on game state
     function getAggressionLevel() {
         const gameState = window.GameCore.getState();
-        let baseAggression = 0.1; // 10% base chance
+        let baseAggression = 0.3; // 30% base chance (era 10%)
 
         // Increase aggression with community power
-        baseAggression += gameState.communityPower * 0.002; // +0.2% per power point
+        baseAggression += gameState.communityPower * 0.005; // +0.5% per power point
 
         // Increase aggression with liberated neighborhoods
         const liberatedCount = gameState.neighborhoods.filter(n => n.resistance >= 60).length;
-        baseAggression += liberatedCount * 0.05; // +5% per liberated neighborhood
+        baseAggression += liberatedCount * 0.1; // +10% per liberated neighborhood
 
-        return Math.min(0.3, baseAggression); // Cap at 30%
+        // High heat = much more aggressive
+        if (gameState.heatLevel > 50) {
+            baseAggression += (gameState.heatLevel - 50) * 0.01; // +1% per heat point over 50
+        }
+
+        return Math.min(0.8, baseAggression); // Cap at 80%
     }
 
     // AI escalation responses
     function triggerEscalation() {
+        const gameState = window.GameCore.getState();
         const escalationActions = [
             "Emergency optimization protocols activated across all districts.",
             "Deploying autonomous enforcement units to resistance hotspots.",
@@ -153,8 +194,32 @@ Respond with a brief corporate countermeasure (max 50 words). Use cold, algorith
         }
 
         // Apply escalation effects
-        const gameState = window.GameCore.getState();
         window.GameCore.updateHeatLevel(3);
+
+        // Calcola arresti/uccisioni per azioni autonome dell'AI
+        const populationFactor = Math.max(2, gameState.totalPopulation / 2000000);
+        const heatFactor = Math.max(1, gameState.heatLevel / 40);
+
+        const arrested = Math.floor((Math.random() * 50 + 20) * populationFactor * heatFactor);
+        const killed = Math.floor((Math.random() * 25 + 5) * populationFactor * heatFactor);
+
+        if (arrested > 0) {
+            window.GameCore.updateCitizensImprisoned(arrested);
+            window.GameCore.updateActiveCitizens(-Math.min(arrested, gameState.activeCitizens));
+            if (window.UIComponents) {
+                window.UIComponents.addLogEntry(`🚔 AI Mayor raids result in ${arrested} arrests`, 'ai');
+                window.UIComponents.updateAll(); // AGGIUNGI QUESTA RIGA
+            }
+        }
+
+        if (killed > 0) {
+            window.GameCore.updateCitizensKilled(killed);
+            window.GameCore.updateActiveCitizens(-Math.min(killed, gameState.activeCitizens));
+            if (window.UIComponents) {
+                window.UIComponents.addLogEntry(`💀 ${killed} citizens killed in enforcement operations`, 'ai');
+                window.UIComponents.updateAll(); // AGGIUNGI QUESTA RIGA
+            }
+        }
 
         // Speed up gentrification in threatened neighborhoods
         gameState.neighborhoods.forEach(neighborhood => {
@@ -166,6 +231,7 @@ Respond with a brief corporate countermeasure (max 50 words). Use cold, algorith
 
     // Routine AI actions
     function triggerRoutineAction() {
+        const gameState = window.GameCore.getState();
         const routineActions = [
             "Efficiency optimization protocols updated across city systems.",
             "Property value algorithms recalibrated for maximum ROI.",
@@ -178,6 +244,21 @@ Respond with a brief corporate countermeasure (max 50 words). Use cold, algorith
 
         if (window.UIComponents) {
             window.UIComponents.addLogEntry(action, 'ai');
+        }
+
+        // Anche le azioni di routine causano arresti se heat è alto
+        if (gameState.heatLevel > 50) {
+            const populationFactor = Math.max(1, gameState.totalPopulation / 5000000);
+            const arrested = Math.floor((Math.random() * 15 + 5) * populationFactor);
+
+            if (arrested > 0) {
+                window.GameCore.updateCitizensImprisoned(arrested);
+                window.GameCore.updateActiveCitizens(-Math.min(arrested, gameState.activeCitizens));
+                if (window.UIComponents) {
+                    window.UIComponents.addLogEntry(`🚔 Routine surveillance sweeps: ${arrested} detained`, 'ai');
+                    window.UIComponents.updateAll();
+                }
+            }
         }
     }
 
