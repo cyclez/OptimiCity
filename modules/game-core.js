@@ -16,7 +16,7 @@ window.GameCore = (function () {
         citizensImprisoned: 0,
         citizensKilled: 0,
         selectedNeighborhood: null,
-        actionCooldowns: {}, // Replace actionCooldown: false with this
+        actionCooldowns: {},
         neighborhoods: [
             { id: 'market', name: 'Market District', resistance: 5, gentrificationTimer: 10, threatened: true, population: 1200 },
             { id: 'riverside', name: 'Riverside', resistance: 12, gentrificationTimer: 18, threatened: true, population: 850 },
@@ -215,7 +215,7 @@ window.GameCore = (function () {
             UIComponents.addLogEntry('Select a neighborhood and choose your first action.', 'system');
         }
 
-        // Start timer - aggiorna ogni secondo esatto
+        // Start timer - update every second exactly
         timerId = setInterval(updateTimer, 1000);
 
         // Start game loop
@@ -225,10 +225,10 @@ window.GameCore = (function () {
             // Update neighborhood timers
             gameState.neighborhoods.forEach(neighborhood => {
                 if (neighborhood.threatened && neighborhood.gentrificationTimer > 0) {
-                    // Decrementa in minuti: ogni 5 secondi = 5/60 = 0.0833 minuti
-                    neighborhood.gentrificationTimer -= (5 / 60); // 0.0833 minuti per tick
+                    // Decrement in minutes: every 5 seconds = 5/60 = 0.0833 minutes
+                    neighborhood.gentrificationTimer -= (5 / 60); // 0.0833 minutes per tick
 
-                    // Arrotonda per evitare problemi di precisione
+                    // Round to avoid precision problems
                     neighborhood.gentrificationTimer = Math.max(0, Math.round(neighborhood.gentrificationTimer * 100) / 100);
 
                     if (neighborhood.gentrificationTimer <= 0) {
@@ -314,7 +314,7 @@ window.GameCore = (function () {
 
         updateCitizensKilled: function (change) {
             gameState.citizensKilled = Math.max(0, gameState.citizensKilled + change);
-            // Rimuovi dalla popolazione totale
+            // Remove from total population
             gameState.totalPopulation = Math.max(0, gameState.totalPopulation - change);
         },
 

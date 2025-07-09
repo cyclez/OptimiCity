@@ -159,7 +159,7 @@ Respond briefly (max 40 words) with appropriate corporate tone for this threat l
     // Calculate AI Mayor aggression based on game state
     function getAggressionLevel() {
         const gameState = window.GameCore.getState();
-        let baseAggression = 0.3; // 30% base chance (era 10%)
+        let baseAggression = 0.3; // 30% base chance
 
         // Increase aggression with community power
         baseAggression += gameState.communityPower * 0.005; // +0.5% per power point
@@ -196,7 +196,7 @@ Respond briefly (max 40 words) with appropriate corporate tone for this threat l
         // Apply escalation effects
         window.GameCore.updateHeatLevel(3);
 
-        // Calcola arresti/uccisioni per azioni autonome dell'AI
+        // Calculate arrests/kills for autonomous AI actions
         const populationFactor = Math.max(2, gameState.totalPopulation / 2000000);
         const heatFactor = Math.max(1, gameState.heatLevel / 40);
 
@@ -208,7 +208,7 @@ Respond briefly (max 40 words) with appropriate corporate tone for this threat l
             window.GameCore.updateActiveCitizens(-Math.min(arrested, gameState.activeCitizens));
             if (window.UIComponents) {
                 window.UIComponents.addLogEntry(`🚔 AI Mayor raids result in ${arrested} arrests`, 'ai');
-                window.UIComponents.updateAll(); // AGGIUNGI QUESTA RIGA
+                window.UIComponents.updateAll();
             }
         }
 
@@ -217,7 +217,7 @@ Respond briefly (max 40 words) with appropriate corporate tone for this threat l
             window.GameCore.updateActiveCitizens(-Math.min(killed, gameState.activeCitizens));
             if (window.UIComponents) {
                 window.UIComponents.addLogEntry(`💀 ${killed} citizens killed in enforcement operations`, 'ai');
-                window.UIComponents.updateAll(); // AGGIUNGI QUESTA RIGA
+                window.UIComponents.updateAll();
             }
         }
 
@@ -246,7 +246,7 @@ Respond briefly (max 40 words) with appropriate corporate tone for this threat l
             window.UIComponents.addLogEntry(action, 'ai');
         }
 
-        // Anche le azioni di routine causano arresti se heat è alto
+        // Even routine actions cause arrests if heat is high
         if (gameState.heatLevel > 50) {
             const populationFactor = Math.max(1, gameState.totalPopulation / 5000000);
             const arrested = Math.floor((Math.random() * 15 + 5) * populationFactor);

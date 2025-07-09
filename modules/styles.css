@@ -97,12 +97,13 @@ body {
     top: 70px;
     left: 65%;
     right: 320px;
-    /* ends at same position as #statusBar */
     bottom: 320px;
     background: rgba(0, 0, 0, 0.85);
     border: 2px solid #f39c12;
     border-radius: 8px;
     z-index: 90;
+    overflow: hidden;
+    /* Prevents overflow */
 }
 
 .log-header {
@@ -111,12 +112,17 @@ body {
     padding: 10px 15px;
     font-weight: bold;
     font-size: 12px;
+    flex-shrink: 0;
+    /* Header doesn't shrink */
 }
 
 #logEntries {
     height: calc(100% - 42px);
     overflow-y: auto;
-    padding: 10px;
+    overflow-x: hidden;
+    padding: 10px 15px 15px 10px;
+    word-wrap: break-word;
+    hyphens: auto;
 }
 
 .log-entry {
@@ -126,11 +132,14 @@ body {
     font-size: 12px;
     line-height: 1.5;
     word-wrap: break-word;
-    white-space: normal;
+    white-space: pre-wrap;
+    /* Changed from normal to pre-wrap */
     min-height: auto;
     height: auto;
     overflow-wrap: break-word;
     hyphens: auto;
+    max-width: 100%;
+    /* Limits width */
 }
 
 .log-entry.log-system {
@@ -148,6 +157,82 @@ body {
 
 .log-entry.log-citizen {
     background: #3498db;
+}
+
+/* === SCROLLBAR STYLING === */
+#logEntries::-webkit-scrollbar {
+    width: 8px;
+}
+
+#logEntries::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    margin: 10px 0 15px 0;
+    /* Modified: 10px above, 15px below */
+    border-radius: 4px;
+}
+
+#logEntries::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    margin: 2px;
+    /* Added: minimum height for thumb */
+    min-height: 20px;
+}
+
+#logEntries::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* Added: Margins for scrollbar corner */
+#logEntries::-webkit-scrollbar-corner {
+    background: transparent;
+    margin-bottom: 15px;
+}
+
+/* Modified: Larger extra space at bottom */
+#logEntries::after {
+    content: "";
+    display: block;
+    height: 10px;
+    width: 100%;
+}
+
+/* === STATUS BAR === */
+#statusBar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 320px;
+    height: 60px;
+    background: rgba(0, 0, 0, 0.9);
+    border-bottom: 2px solid #27ae60;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 100;
+    overflow: hidden;
+    /* Added: prevents overflow in status bar */
+}
+
+.status-section {
+    display: flex;
+    gap: 20px;
+    /* Reduced: from 30px to 20px for more space */
+    flex-wrap: wrap;
+    /* Added: allows wrapping if necessary */
+    align-items: center;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    /* Reduced: from 8px to 6px */
+    font-size: 13px;
+    /* Reduced: from 14px to 13px */
+    white-space: nowrap;
+    /* Added: prevents text wrapping */
 }
 
 /* === ACTION PANEL === */
@@ -306,7 +391,7 @@ body {
     background: url('../assets/industrial\ quarter.png') center/cover, rgba(255, 255, 255, 0.1);
 }
 
-/* Aggiungi queste regole per rendere il testo leggibile sopra le immagini: */
+/* Add these rules to make text readable over images: */
 .neighborhood-name,
 .resistance-info,
 .threat-timer {

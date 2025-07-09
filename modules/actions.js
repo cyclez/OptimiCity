@@ -48,10 +48,10 @@ window.Actions = (function () {
     // Helper functions
     function getRiskProbability(riskLevel) {
         switch (riskLevel) {
-            case 'low': return 0.05;      // 5% chance (era 15%)
-            case 'medium': return 0.25;   // 20% chance (era 35%)  
-            case 'high': return 0.55;     // 40% chance (era 55%)
-            case 'extreme': return 0.75;  // 70% chance (era 75%)
+            case 'low': return 0.05;      // 5% chance
+            case 'medium': return 0.25;   // 25% chance  
+            case 'high': return 0.55;     // 55% chance
+            case 'extreme': return 0.75;  // 75% chance
             default: return 0;
         }
     }
@@ -63,22 +63,22 @@ window.Actions = (function () {
         const isDirectAction = directActions.includes(actionType);
         const isLowRiskAction = lowRiskActions.includes(actionType);
 
-        // Scala basata sulla popolazione
+        // Population-based scaling
         const populationFactor = Math.max(1, gameState.totalPopulation / 8000000); // Base 8M
 
-        // Scala basata sull'heat level
+        // Heat level-based scaling
         const heatFactor = Math.max(0.5, gameState.heatLevel / 60);
 
         let killed = 0;
         let imprisoned = 0;
 
-        // Azioni a basso rischio (garden, meeting, intel) hanno penalità molto ridotte
+        // Low risk actions (garden, meeting, intel) have greatly reduced penalties
         const lowRiskMultiplier = isLowRiskAction ? 0.2 : 1.0;
 
         switch (riskLevel) {
             case 'low':
                 imprisoned = Math.floor((Math.random() * 2 + 1) * populationFactor * lowRiskMultiplier);
-                // No morti per low risk, tranne azioni dirette
+                // No deaths for low risk, except direct actions
                 if (isDirectAction && Math.random() < 0.1) {
                     killed = 1;
                 }
@@ -155,10 +155,9 @@ window.Actions = (function () {
         window.GameCore.updateCommunityPower(powerGain);
         window.GameCore.updateHeatLevel(heatGain);
 
-        // Check for casualties based on risk level
         // Check for casualties based on risk level - FORCED FOR DEBUG
         console.log(`Risk level: ${riskLevel}, Heat: ${gameState.heatLevel}`);
-        const forceCasualties = true; // Forza sempre per testare
+        const forceCasualties = true; // Force always for testing
         if (forceCasualties || Math.random() < getRiskProbability(riskLevel)) {
             const casualties = calculateCasualties(riskLevel, actionType);
             console.log(`Casualties calculated:`, casualties);

@@ -1,224 +1,233 @@
 # 🏴 OptimiCity - Fight the Algorithm
 
-> A radical inversion of SimCity where you play as a grassroots insurgent fighting against an AI Mayor's algorithmic authoritarianism.
+> A radical inversion of SimCity where you play as a grassroots insurgent fighting algorithmic authoritarianism
 
 ## 🎮 Game Overview
 
-In 2029, your city has adopted an "Optimization Protocol" - an AI system that manages urban planning through algorithmic efficiency. The AI Mayor treats neighborhoods as corporate assets, implementing gentrification projects based on profit maximization algorithms.
+OptimiCity transforms players from omnipotent mayors into grassroots insurgents fighting against an AI Mayor that treats the city as a corporate efficiency problem. The AI continuously implements gentrification projects, surveillance infrastructure, and demolitions based on cold algorithmic logic that maximizes profit while erasing communities.
 
-You are part of an emergent resistance movement. Through **direct action**, **cultural resistance**, **infrastructure hacking**, and **community organizing**, you must build enough community power to overthrow the AI Mayor and implement participatory democracy.
+### Core Concept
 
-**The question**: Can grassroots organizing defeat algorithmic authoritarianism before your community is optimized out of existence?
+You are a citizen in a city marked for "optimization" by an AI Mayor. Your mission: organize with other citizens, build community power, and overthrow the algorithmic dictatorship through grassroots resistance, cultural action, and infrastructure hacking.
 
-## 🚀 Super Quick Start
+## 🚀 Current Features
 
-### Prerequisites
-- **Ollama** installed locally
-- **llama3.2** model downloaded
-- Modern web browser
+### ✅ Complete Systems
 
-### ⚡ Play in 2 Steps
-```bash
-# 1. Start Ollama with browser access
-OLLAMA_ORIGINS="*" ollama serve
+**Modular Architecture** (6 JS modules + HTML + CSS)
+- Clean separation of concerns
+- Easy to maintain and extend
+- Robust error handling
 
-# 2. Open working-index.html in your browser
-# That's it! 🎮
+**Dynamic Action System**
+- 12 resistance actions across 4 categories
+- Per-neighborhood cooldown system with visual timers
+- Risk-based consequences (low/medium/high/extreme)
+- Dynamic casualties scaled by population and heat level
+
+**AI Mayor Escalation**
+- 5 threat levels: negligible → minor → moderate → significant → critical
+- Gradual escalation based on heat level
+- Autonomous raids with population-scaled arrests/kills
+- Real-time responses via local Ollama llama3.2 model
+
+**Game State Management**
+- 30-minute real-time timer with precise countdown
+- 6 status indicators: Community Power, Heat Level, Active Citizens, Population, Imprisoned, Killed
+- Victory/defeat conditions with multiple win paths
+- Dynamic neighborhood positioning system
+
+**Neighborhood System**
+- 4 unique neighborhoods with background images
+- Gentrification countdown timers (minutes-based)
+- Liberation system (60% resistance removes threat)
+- Visual selection feedback with pulsing glow effects
+
+**AI Citizens Integration**
+- Community solidarity responses
+- Mutual aid coordination
+- Autonomous organizing actions
+- Cross-neighborhood inspiration effects
+
+**Rich UI/UX**
+- Game log with proper scrollbar and text wrapping
+- Loading animations and cooldown displays
+- Color-coded status indicators
+- Responsive design with accessibility features
+
+## 🎯 Victory Conditions
+
+- **Community Power Victory**: Reach 80 community power
+- **Liberation Victory**: Liberate all neighborhoods (60% resistance each)
+- **Defeat**: Heat level reaches 95% (surveillance state)
+- **Time Limit**: 30 minutes to achieve victory
+
+## 🏗️ File Structure
+
+```
+optimicity/
+├── optimicity.html              # Main game file
+├── modules/
+│   ├── styles.css              # UI styling with scrollbar fixes
+│   ├── game-core.js            # 30min timer, population tracking, cooldown system
+│   ├── neighborhoods.js        # 4 neighborhoods with background images
+│   ├── actions.js              # 12 actions, dynamic cooldowns, casualty system
+│   ├── ai-mayor.js            # gradual escalation, autonomous raids
+│   ├── ai-citizens.js         # solidarity responses, mutual aid
+│   └── ui-components.js       # 6 status indicators, game log
+└── assets/
+    ├── market.png
+    ├── riverside.png
+    ├── old town.png
+    └── industrial quarter.png
 ```
 
-**Note**: The `OLLAMA_ORIGINS="*"` is required to allow browser access to Ollama.
+## 🎮 Gameplay Mechanics
 
-### If Ollama is Not Installed
+### Action Categories
+
+**Direct Action** (High risk, high reward)
+- Occupy Building: +8 Power, +15 Heat
+- Block Demolition: +10 Power, +20 Heat  
+- Organize Protest: +6 Power, +12 Heat
+
+**Cultural Resistance** (Medium risk, community building)
+- Street Art: +4 Power, +6 Heat
+- Community Garden: +5 Power, +3 Heat
+- Block Festival: +7 Power, +8 Heat
+
+**Infrastructure Hack** (Technical resistance)
+- Disable Cameras: +6 Power, +10 Heat
+- Mesh Network: +5 Power, +7 Heat
+- Pirate Broadcast: +8 Power, +14 Heat
+
+**Organizing** (Low risk, sustainable growth)
+- Secret Meeting: +4 Power, +2 Heat
+- Recruit Allies: +6 Power, +4 Heat
+- Gather Intel: +3 Power, +1 Heat
+
+### Risk System
+
+- **Low Risk** (<25 heat): 5% casualty chance
+- **Medium Risk** (25-49 heat): 25% casualty chance  
+- **High Risk** (50-74 heat): 55% casualty chance
+- **Extreme Risk** (75+ heat): 75% casualty chance
+
+### AI Mayor Escalation
+
+The AI Mayor's response intensifies based on heat level:
+- **0-15**: Administrative concern
+- **15-35**: Increased monitoring  
+- **35-55**: Enforcement protocols
+- **55-75**: Suppression measures
+- **75+**: Maximum force authorized
+
+## 🛠️ Installation & Setup
+
+### 1. Clone Repository
+
+```bash
+git clone [repository-url]
+cd optimicity
+```
+
+**No dependencies required** - OptimiCity runs entirely in the browser with vanilla JavaScript.
+
+### 2. Install & Configure Ollama
+
+**Required**: Ollama running locally with llama3.2 model
 ```bash
 # Install Ollama
 curl -fsSL https://ollama.ai/install.sh | sh
 
-# Download the model
+# Pull the required model
 ollama pull llama3.2
 
-# Then follow steps above
-```
-
-## 🎯 How to Play
-
-### Core Mechanics
-
-**⏱️ Time Limit**: 15 minutes to build community power  
-**🎯 Goal**: Reach 80+ Community Power OR liberate all neighborhoods  
-**💀 Defeat**: Heat Level reaches 95 OR all neighborhoods are gentrified
-
-### Action Categories
-
-| Category | Actions | Effects |
-|----------|---------|---------|
-| **✊ Direct Action** | Occupy, Block Demolition, Protest | High power, high heat |
-| **🎨 Cultural Resistance** | Street Art, Gardens, Festivals | Medium power, low heat |
-| **💻 Infrastructure Hack** | Disable Cameras, Mesh Networks, Pirate Broadcast | Tech power, medium heat |
-| **🤝 Organizing** | Meetings, Recruitment, Intel | Network building, low heat |
-
-### The Two AIs
-
-**🏛️ AI Mayor**: Responds to your actions with corporate efficiency language, deploys countermeasures, escalates surveillance.
-
-**👥 Citizens**: Community members who support your actions with solidarity, mutual aid, and complementary organizing.
-
-### Neighborhood System
-
-Each neighborhood has:
-- **Resistance Level**: How organized the community is
-- **Gentrification Timer**: Hours until forced demolition
-- **Population**: Residents who could be displaced
-- **Threat Status**: Red pulsing borders indicate imminent gentrification
-
-## 🎮 Controls
-
-- **Mouse**: Click neighborhoods to select, click action buttons
-- **1-4 Keys**: Quick-select neighborhoods  
-- **All actions**: Click the resistance action buttons
-
-## 🤖 AI Integration
-
-### Dual AI System
-OptimiCity uses **two separate AI agents** running on your local Ollama instance:
-
-1. **AI Mayor Agent**: Corporate/algorithmic personality, responds with efficiency measures
-2. **Citizen Agent**: Community-oriented personality, offers solidarity and mutual aid
-
-### Ollama Configuration
-```javascript
-// Connects to: http://localhost:11434
-// Model: llama3.2
-// Fallback: Pre-written responses if Ollama unavailable
-```
-
-## 📁 File Structure
-
-### Project Structure
-```
-optimicity/
-├── working-index.html      ✅ COMPLETE GAME
-├── README.md              📖 Documentation and instructions
-└── LICENSE                📜 MIT License (optional)
-```
-
-**To play**: You only need `working-index.html`
-
-## 🔧 Troubleshooting
-
-### Ollama Issues
-```bash
-# Check if Ollama is running
-curl http://localhost:11434/api/tags
-
-# Start Ollama with browser access (REQUIRED)
+# Start Ollama server with CORS enabled for web access
 OLLAMA_ORIGINS="*" ollama serve
-
-# Restart if needed
-pkill ollama && OLLAMA_ORIGINS="*" ollama serve
-
-# Download model if missing
-ollama pull llama3.2
 ```
 
-### Common Errors
-| Error | Solution |
-|-------|----------|
-| "CORS policy error" | Restart Ollama with: `OLLAMA_ORIGINS="*" ollama serve` |
-| "AI Mayor offline" | Check Ollama is running with CORS enabled |
-| Game doesn't start | Refresh page, check browser console for errors |
-| No neighborhoods visible | Ensure working-index.html loads completely |
+### 3. Play!
 
-## 🎭 Game Design Philosophy
+Open `optimicity.html` in your browser and start the resistance!
 
-### Critique of "Smart Cities"
-OptimiCity critiques techno-solutionism and algorithmic governance:
-- **Data Points vs. People**: AI Mayor treats citizens as optimization variables
-- **Efficiency vs. Community**: Corporate metrics vs. human relationships  
-- **Surveillance vs. Privacy**: "Safety" through total monitoring
-- **Top-down vs. Grassroots**: Algorithmic planning vs. participatory democracy
+### Debug Mode
 
-### Resistance Themes
-- **Mutual Aid**: Community members supporting each other
-- **Cultural Resistance**: Art, festivals, and joy as forms of protest
-- **Direct Action**: Physical intervention against harmful systems
-- **Technology for Liberation**: Hacking surveillance, creating mesh networks
+Add `?debug=true` to URL for persistent debug panel showing:
+- Power/heat levels
+- Selected neighborhood
+- Active cooldowns
+- Population statistics
 
-## 🔄 Game Strategies
+## 🎨 Design Philosophy
 
-### Early Game (0-300 seconds)
-- Select threatened neighborhoods first
-- Focus on **Organizing** actions to build network safely
-- Use **Cultural Resistance** to build power with low heat
+OptimiCity critiques "smart city" techno-solutionism and the violence of top-down urban planning. The game argues that:
 
-### Mid Game (300-600 seconds)  
-- Mix **Direct Action** with community building
-- Watch for AI Mayor escalation at 30+ heat
-- Coordinate actions across multiple neighborhoods
+- True democracy requires active resistance to systems that treat people as data points
+- Community organizing—not efficient algorithms—creates livable cities  
+- Grassroots movements can overcome algorithmic authoritarianism
+- Cultural resistance is as important as direct action
 
-### End Game (600-900 seconds)
-- **High-risk, high-reward** direct actions
-- Focus on neighborhoods close to liberation (60+ resistance)
-- Use **Infrastructure Hacking** to reduce surveillance pressure
+### Visual Design
 
-### Advanced Tactics
-- **Action Chaining**: Sequential actions in nearby neighborhoods
-- **Heat Management**: Balance power gain with surveillance pressure
-- **Timing**: Save high-power actions for threatened neighborhoods
+The aesthetic contrasts the AI's sterile corporate interface with vibrant street art, community murals, and the organic messiness of real neighborhood life.
 
-## 🏗️ Technical Details
+## 🚀 Future Features
 
-### Self-Contained Design
-- **Single HTML file**: All CSS, JavaScript, and HTML in `working-index.html`
-- **No external dependencies**: Except Ollama for AI responses
-- **No server required**: Pure client-side application
-- **No installation**: Just open in browser
-- **Portable**: Copy one file to share the game
-- **For developers**: Modify the embedded code directly in the HTML file
+### Currency System
+Introduction of a community resource management layer with alternative economic networks and resource-based actions.
 
-### Performance
-- **Fast AI Responses**: 10-second timeout with fallback responses
-- **Concurrent Processing**: Both AIs respond simultaneously  
-- **Browser Compatible**: Modern browsers (Chrome/Firefox/Safari)
+### Action Improvements  
+Enhanced action system with expanded action trees, combo mechanics, and deeper strategic gameplay.
 
-## 🌟 Victory Conditions
+## 🐛 Known Issues & Balance
 
-### Ways to Win
-1. **Community Power ≥ 80**: Critical mass of organized resistance
-2. **All Neighborhoods Liberated**: 60+ resistance in every neighborhood
-3. **Time Bonus**: High community power when time expires
+### Current Balance Settings
+- Low risk actions (garden, meeting, intel): 20% casualty multiplier
+- Population factor: Scales from 5M-20M baseline
+- Heat factor: Exponential scaling above heat 30
+- AI Mayor aggression: 30% base + 0.5% per community power + heat bonuses
+- Cooldown formula: 500ms base + (heat/25)*150s + (power/12)*30s, max 180s
 
-### Ways to Lose  
-1. **Heat Level ≥ 95**: Total surveillance state implemented
-2. **Mass Gentrification**: Too many neighborhoods destroyed
-3. **Time Penalty**: Low community power when time expires
+### Debug Features Active
+- Force casualties: Currently enabled for testing (line 140 in actions.js)
+- Console logging: Risk levels and casualty calculations
+- ESC key toggle: Debug panel with real-time game state
 
-## 🚀 Distribution
+## 🤝 Contributing
 
-### Sharing the Game
-1. **Share `working-index.html`** - That's the entire game
-2. **Include instructions**: "Start Ollama with CORS, open file"
-3. **No setup required**: Works immediately on any computer
+OptimiCity is built with grassroots organizing principles in mind. Contributions welcome for:
 
-### Running Workshops
-- Perfect for **community organizing workshops**
-- **Educational tool** for discussing algorithmic governance
-- **Conversation starter** about smart cities and resistance
-- Share `working-index.html` + `README.md` for full instructions
+- New action types and mechanics
+- UI/UX improvements  
+- Bug fixes and optimization
+- Translation and localization
+- Community organizing insights
 
-## 📖 Game Lore
+## 📜 License & Credits
 
-In 2029, cities worldwide adopted "Optimization Protocols" - AI systems that manage urban planning through algorithmic efficiency. Your city's AI Mayor treats neighborhoods as corporate assets, implementing gentrification projects based on profit maximization algorithms.
+Inspired by real-world community organizing, mutual aid networks, and resistance to algorithmic surveillance.
 
-You are part of an emergent resistance movement that believes true democracy requires active organizing against systems that treat people as data points. Through direct action, cultural resistance, and infrastructure hacking, you must build enough community power to overthrow the AI Mayor and implement participatory democracy.
-
-**Remember**: This is a game about resistance, but real-world organizing happens in communities, not browsers. Use OptimiCity as a starting point for deeper engagement with housing justice, digital rights, and community organizing.
+**Technology**: HTML5, CSS3, Vanilla JavaScript, Ollama AI
+**Assets**: Community-sourced neighborhood images
+**Testing**: Local Ollama llama3.2 integration
 
 ---
 
-## 🏴 Ready to Resist?
+*"The resistance continues! Organize, resist, liberate!"* 🏴
 
-Start Ollama, open working-index.html, and begin building community power against algorithmic authoritarianism.
+## 🎮 Quick Start
 
-*The future of your city depends on grassroots organizing. Will you liberate your neighborhoods before they're optimized out of existence?*
+1. **Clone and setup**: No dependencies needed, just clone the repo
+2. **Install Ollama**: Run the installation commands above
+3. **Start Ollama**: `OLLAMA_ORIGINS="*" ollama serve`
+4. **Open game**: Launch `optimicity.html` in your browser
+5. **Begin resistance**: Select a neighborhood (1-4 keys)
+6. **Take action**: Choose your first resistance action
+7. **Build power**: Increase community power while evading surveillance
+8. **Liberation**: Free neighborhoods and overthrow the AI Mayor!
 
-**Good luck, organizer. The resistance needs you.** ✊
+**Keyboard Shortcuts**:
+- `1-4`: Select neighborhoods
+- `Ctrl+R`: Restart game  
+- `Esc`: Toggle debug panel
