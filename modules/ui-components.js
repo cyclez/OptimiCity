@@ -42,13 +42,67 @@ window.UIComponents = (function () {
         const totalPopulationEl = document.getElementById('totalPopulation');
         const citizensImprisonedEl = document.getElementById('citizensImprisoned');
         const citizensKilledEl = document.getElementById('citizensKilled');
+        const simCoinEl = document.getElementById('simCoin');
+        const miningIndicatorEl = document.getElementById('miningIndicator');
+        const heatCooldownEl = document.getElementById('heatCooldown');
 
         if (communityPowerEl) communityPowerEl.textContent = Math.round(gameState.communityPower);
-        if (heatLevelEl) heatLevelEl.textContent = Math.round(gameState.heatLevel);
+        if (heatLevelEl) {
+            let heatText = Math.round(gameState.heatLevel);
+            if (gameState.minHeatLevel > 0) {
+                heatText += ` (min: ${gameState.minHeatLevel})`;
+            }
+            heatLevelEl.textContent = heatText;
+        }
+        
+        // Update heat cooldown indicator
+        if (heatCooldownEl && window.GameCore) {
+            if (window.GameCore.isGlobalActionOnCooldown()) {
+                const remaining = Math.ceil(window.GameCore.getGlobalActionCooldownRemaining() / 1000);
+                heatCooldownEl.textContent = ` ⏱️${remaining}s`;
+            } else {
+                heatCooldownEl.textContent = '';
+            }
+        }
         if (activeCitizensEl) activeCitizensEl.textContent = gameState.activeCitizens.toLocaleString();
         if (totalPopulationEl) totalPopulationEl.textContent = (gameState.totalPopulation / 1000000).toFixed(1) + 'M';
         if (citizensImprisonedEl) citizensImprisonedEl.textContent = gameState.citizensImprisoned.toLocaleString();
         if (citizensKilledEl) citizensKilledEl.textContent = gameState.citizensKilled.toLocaleString();
+        if (simCoinEl) simCoinEl.textContent = gameState.simCoin.toLocaleString();
+        
+        // Update mining status (Phase 2: 0.01% of population)
+        const miningThreshold = Math.floor(gameState.totalPopulation * 0.0001);
+        if (miningIndicatorEl) {
+            if (gameState.activeCitizens < miningThreshold) {
+                const needed = (miningThreshold - gameState.activeCitizens).toLocaleString();
+                miningIndicatorEl.textContent = `⛏️ Mining: Inactive\n(need ${needed} more citizens)`;
+            } else {
+                miningIndicatorEl.textContent = `⛏️ Mining: Active\n(${gameState.activeCitizens.toLocaleString()} citizens)`;
+            }
+        }
+        
+        // Update currency button states (Phase 2: 0.01% of population)
+        const crowdfundingThreshold = Math.floor(gameState.totalPopulation * 0.0001);
+        const crowdfundBtn = document.getElementById('crowdfundBtn');
+        
+        if (crowdfundBtn) {
+            if (gameState.activeCitizens < crowdfundingThreshold) {
+                crowdfundBtn.disabled = true;
+                crowdfundBtn.style.opacity = '0.5';
+                const costSpan = crowdfundBtn.querySelector('.currency-cost');
+                if (costSpan) {
+                    const needed = (crowdfundingThreshold - gameState.activeCitizens).toLocaleString();
+                    costSpan.textContent = `Need ${needed} more citizens`;
+                }
+            } else {
+                crowdfundBtn.disabled = false;
+                crowdfundBtn.style.opacity = '1';
+                const costSpan = crowdfundBtn.querySelector('.currency-cost');
+                if (costSpan) {
+                    costSpan.textContent = 'Cost: 500';
+                }
+            }
+        }
     }
 
     // Update AI Mayor metrics

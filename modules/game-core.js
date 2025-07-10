@@ -11,12 +11,22 @@ window.GameCore = (function () {
         duration: 30 * 60 * 1000, // 30 minutes
         communityPower: 0,
         heatLevel: 0,
-        activeCitizens: Math.floor(Math.random() * (300 - 100 + 1)) + 100, // Random 100-300
+        activeCitizens: 1, // Start with 1 active citizen (the player)
         totalPopulation: Math.floor(Math.random() * (20000000 - 5000000 + 1)) + 5000000, // Random 5M-20M
         citizensImprisoned: 0,
         citizensKilled: 0,
         selectedNeighborhood: null,
         actionCooldowns: {},
+        // Heat cooldown system
+        lastActionTime: 0,
+        globalActionCooldown: 3000, // 3 seconds base cooldown between actions
+        minHeatLevel: 0, // Heat can't go below this level (ratcheting effect)
+        heatThresholds: [25, 50, 75], // Once reached, heat can't drop below these
+        // Currency system
+        simCoin: 5000, // Starting balance
+        totalActionsCompleted: 0,
+        infrastructureBonus: 0, // Mining boost from infrastructure actions
+        currencyEarningCooldowns: {},
         neighborhoods: [
             { id: 'market', name: 'Market District', resistance: 5, gentrificationTimer: 10, threatened: true, population: 1200 },
             { id: 'riverside', name: 'Riverside', resistance: 12, gentrificationTimer: 18, threatened: true, population: 850 },
@@ -170,6 +180,11 @@ window.GameCore = (function () {
         gameState.citizensKilled = 0;
         gameState.selectedNeighborhood = null;
         gameState.actionCooldowns = {};
+        // Reset currency system
+        gameState.simCoin = 5000;
+        gameState.totalActionsCompleted = 0;
+        gameState.infrastructureBonus = 0;
+        gameState.currencyEarningCooldowns = {};
 
         // Reset neighborhoods
         gameState.neighborhoods.forEach(n => {
@@ -301,7 +316,12 @@ window.GameCore = (function () {
         },
 
         updateHeatLevel: function (change) {
-            gameState.heatLevel = Math.max(0, Math.min(100, gameState.heatLevel + change));
+            // Apply heat change but respect minimum heat level (ratcheting effect)
+            const newHeatLevel = Math.max(gameState.minHeatLevel, Math.min(100, gameState.heatLevel + change));
+            gameState.heatLevel = newHeatLevel;
+            
+            // Check if we've crossed any surveillance thresholds
+            this.checkHeatThresholds();
         },
 
         updateActiveCitizens: function (change) {
@@ -336,8 +356,94 @@ window.GameCore = (function () {
             return cooldownEnd ? Math.max(0, cooldownEnd - Date.now()) : 0;
         },
 
+        // Heat cooldown system
+        isGlobalActionOnCooldown: function () {
+            return Date.now() < gameState.lastActionTime + gameState.globalActionCooldown;
+        },
+
+        getGlobalActionCooldownRemaining: function () {
+            return Math.max(0, (gameState.lastActionTime + gameState.globalActionCooldown) - Date.now());
+        },
+
+        setGlobalActionCooldown: function () {
+            gameState.lastActionTime = Date.now();
+        },
+
+        checkSpamPenalty: function () {
+            const timeSinceLastAction = Date.now() - gameState.lastActionTime;
+            let heatPenalty = 0;
+
+            if (timeSinceLastAction < 2000) {
+                // Very rapid action (under 2 seconds)
+                heatPenalty = 8;
+            } else if (timeSinceLastAction < 5000) {
+                // Quick action (2-5 seconds)
+                heatPenalty = 4;
+            } else if (timeSinceLastAction < 10000) {
+                // Moderate action (5-10 seconds)
+                heatPenalty = 2;
+            }
+            // No penalty for actions 10+ seconds apart
+
+            if (heatPenalty > 0) {
+                this.updateHeatLevel(heatPenalty);
+                if (window.UIComponents) {
+                    window.UIComponents.addLogEntry(`⚠️ Rapid actions detected! +${heatPenalty} surveillance heat`, 'system');
+                }
+            }
+
+            return heatPenalty;
+        },
+
+        checkHeatThresholds: function () {
+            // Check if we've crossed any heat thresholds that lock in minimum heat
+            for (const threshold of gameState.heatThresholds) {
+                if (gameState.heatLevel >= threshold && gameState.minHeatLevel < threshold) {
+                    gameState.minHeatLevel = threshold;
+                    if (window.UIComponents) {
+                        window.UIComponents.addLogEntry(`🚨 SURVEILLANCE THRESHOLD REACHED: Heat level locked at minimum ${threshold}%`, 'system');
+                    }
+                }
+            }
+        },
+
         selectNeighborhood: function (neighborhoodId) {
             gameState.selectedNeighborhood = neighborhoodId;
+        },
+
+        // Currency management functions
+        updateSimCoin: function (amount) {
+            gameState.simCoin = Math.max(0, gameState.simCoin + amount);
+        },
+
+        getSimCoin: function () {
+            return gameState.simCoin;
+        },
+
+        canAfford: function (cost) {
+            return gameState.simCoin >= cost;
+        },
+
+        incrementActionsCompleted: function () {
+            gameState.totalActionsCompleted++;
+        },
+
+        updateInfrastructureBonus: function (amount) {
+            gameState.infrastructureBonus += amount;
+        },
+
+        setCurrencyEarningCooldown: function (type, duration) {
+            gameState.currencyEarningCooldowns[type] = Date.now() + duration;
+        },
+
+        isCurrencyEarningOnCooldown: function (type) {
+            const cooldownEnd = gameState.currencyEarningCooldowns[type];
+            return cooldownEnd && Date.now() < cooldownEnd;
+        },
+
+        getCurrencyEarningCooldownRemaining: function (type) {
+            const cooldownEnd = gameState.currencyEarningCooldowns[type];
+            return cooldownEnd ? Math.max(0, cooldownEnd - Date.now()) : 0;
         }
     };
 })();

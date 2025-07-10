@@ -129,24 +129,24 @@ Someone just took action in the resistance. Respond with brief community solidar
         }
     }
 
-    // Calculate community activity level based on game state
+    // Calculate community activity level based on game state (significantly reduced)
     function getCommunityActivityLevel() {
         const gameState = window.GameCore.getState();
-        let baseActivity = 0.05; // 5% base chance
+        let baseActivity = 0.01; // 1% base chance (reduced from 5%)
 
         // Increase activity with community power (organized communities do more)
-        baseActivity += gameState.communityPower * 0.001; // +0.1% per power point
+        baseActivity += gameState.communityPower * 0.0002; // +0.02% per power point (reduced)
 
         // Increase activity when under threat (solidarity in crisis)
         const threatenedCount = gameState.neighborhoods.filter(n => n.threatened).length;
-        baseActivity += threatenedCount * 0.02; // +2% per threatened neighborhood
+        baseActivity += threatenedCount * 0.005; // +0.5% per threatened neighborhood (reduced)
 
         // Decrease activity with high heat (suppression effect)
         if (gameState.heatLevel > 70) {
-            baseActivity *= 0.7; // 30% reduction under heavy surveillance
+            baseActivity *= 0.5; // 50% reduction under heavy surveillance
         }
 
-        return Math.min(0.2, baseActivity); // Cap at 20%
+        return Math.min(0.05, baseActivity); // Cap at 5% (reduced from 20%)
     }
 
     // Get community actions based on current morale/power

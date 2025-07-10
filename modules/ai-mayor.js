@@ -196,12 +196,13 @@ Respond briefly (max 40 words) with appropriate corporate tone for this threat l
         // Apply escalation effects
         window.GameCore.updateHeatLevel(3);
 
-        // Calculate arrests/kills for autonomous AI actions
-        const populationFactor = Math.max(2, gameState.totalPopulation / 2000000);
+        // Calculate arrests/kills for autonomous AI actions - scale with actual resistance size
+        const resistanceFactor = Math.max(0.1, gameState.activeCitizens / 1000); // Scale with actual resistance
         const heatFactor = Math.max(1, gameState.heatLevel / 40);
 
-        const arrested = Math.floor((Math.random() * 50 + 20) * populationFactor * heatFactor);
-        const killed = Math.floor((Math.random() * 25 + 5) * populationFactor * heatFactor);
+        // Much smaller base numbers since we're targeting actual resistance
+        const arrested = Math.floor((Math.random() * 5 + 2) * resistanceFactor * heatFactor);
+        const killed = Math.floor((Math.random() * 2 + 1) * resistanceFactor * heatFactor);
 
         if (arrested > 0) {
             window.GameCore.updateCitizensImprisoned(arrested);

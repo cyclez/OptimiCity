@@ -14,16 +14,17 @@ You are a citizen in a city marked for "optimization" by an AI Mayor. Your missi
 
 ### ✅ Complete Systems
 
-**Modular Architecture** (6 JS modules + HTML + CSS)
+**Modular Architecture** (7 JS modules + HTML + CSS)
 - Clean separation of concerns
 - Easy to maintain and extend
 - Robust error handling
 
 **Dynamic Action System**
-- 12 resistance actions across 4 categories
+- 12 resistance actions across 4 categories with significance-based costs
 - Per-neighborhood cooldown system with visual timers
 - Risk-based consequences (low/medium/high/extreme)
-- Dynamic casualties scaled by population and heat level
+- Dynamic casualties scaled by resistance size (not population)
+- Population-aware recruitment with phase-based progression
 
 **AI Mayor Escalation**
 - 5 threat levels: negligible → minor → moderate → significant → critical
@@ -33,7 +34,7 @@ You are a citizen in a city marked for "optimization" by an AI Mayor. Your missi
 
 **Game State Management**
 - 30-minute real-time timer with precise countdown
-- 6 status indicators: Community Power, Heat Level, Active Citizens, Population, Imprisoned, Killed
+- 7 status indicators: SimCoin, Community Power, Heat Level, Active Citizens, Population, Imprisoned, Killed
 - Victory/defeat conditions with multiple win paths
 - Dynamic neighborhood positioning system
 
@@ -84,27 +85,36 @@ optimicity/
 
 ## 🎮 Gameplay Mechanics
 
-### Action Categories
+### Action Categories & Costs
 
-**Direct Action** (High risk, high reward)
-- Occupy Building: +8 Power, +15 Heat
-- Block Demolition: +10 Power, +20 Heat  
-- Organize Protest: +6 Power, +12 Heat
+**Direct Action** (High significance: 1500-4000 SimCoin)
+- Occupy Building: 3500 SimCoin, +6-10 Power, +12-18 Heat
+- Block Demolition: 4000 SimCoin, +8-12 Power, +15-25 Heat  
+- Organize Protest: 2000 SimCoin, +5-8 Power, +10-15 Heat (recruits 10-30+ citizens)
 
-**Cultural Resistance** (Medium risk, community building)
-- Street Art: +4 Power, +6 Heat
-- Community Garden: +5 Power, +3 Heat
-- Block Festival: +7 Power, +8 Heat
+**Cultural Resistance** (Low-Medium significance: 50-600 SimCoin)
+- Street Art: 125 SimCoin, +3-6 Power, +4-8 Heat
+- Community Garden: 50 SimCoin, +4-7 Power, +2-5 Heat
+- Block Festival: 600 SimCoin, +6-9 Power, +6-10 Heat
 
-**Infrastructure Hack** (Technical resistance)
-- Disable Cameras: +6 Power, +10 Heat
-- Mesh Network: +5 Power, +7 Heat
-- Pirate Broadcast: +8 Power, +14 Heat
+**Infrastructure Hack** (Medium-High significance: 700-3000 SimCoin)
+- Disable Cameras: 750 SimCoin, +5-8 Power, +8-12 Heat
+- Mesh Network: 700 SimCoin, +4-6 Power, +5-8 Heat
+- Pirate Broadcast: 3000 SimCoin, +7-10 Power, +12-16 Heat
 
-**Organizing** (Low risk, sustainable growth)
-- Secret Meeting: +4 Power, +2 Heat
-- Recruit Allies: +6 Power, +4 Heat
-- Gather Intel: +3 Power, +1 Heat
+**Organizing** (Low significance: 75-500 SimCoin)
+- Secret Meeting: 75 SimCoin, +3-5 Power, +1-3 Heat
+- Recruit Allies: 500 SimCoin, +5-8 Power, +3-6 Heat
+- Gather Intel: 100 SimCoin, +2-4 Power, +1-2 Heat
+
+### Population-Aware Recruitment System
+
+**Three-Phase Progression** based on resistance size:
+- **Phase 1 - Individual Network** (<0.01% of population): Fixed small recruitment (2-30 citizens)
+- **Phase 2 - Local Movement** (0.01%-0.1% of population): Percentage-based recruitment
+- **Phase 3 - City-Wide Resistance** (>0.1% of population): Mass mobilization possible
+
+**Mobilizing Actions** (protests) provide enhanced recruitment across all phases.
 
 ### Risk System
 
@@ -112,6 +122,11 @@ optimicity/
 - **Medium Risk** (25-49 heat): 25% casualty chance  
 - **High Risk** (50-74 heat): 55% casualty chance
 - **Extreme Risk** (75+ heat): 75% casualty chance
+
+**Casualty Scaling**: Based on active resistance size, not total population
+- Small groups (<100): 10% risk factor
+- Medium groups (100-1000): 30% risk factor  
+- Large movements (1000+): 50% risk factor
 
 ### AI Mayor Escalation
 
@@ -174,8 +189,15 @@ The aesthetic contrasts the AI's sterile corporate interface with vibrant street
 
 ## 🚀 Future Features
 
-### Currency System
-Introduction of a community resource management layer with alternative economic networks and resource-based actions.
+### Currency System ✅
+**SimCoin Economy** - Complete alternative currency system:
+- **Mining**: Exponential scaling based on active citizens (15M threshold)
+- **Action Costs**: Significance-based pricing (50-4000 SimCoin)
+  - Low Significance: 50-200 SimCoin (meetings, intel, gardens, street art)
+  - Medium Significance: 400-800 SimCoin (recruiting, festivals, tech infrastructure)
+  - High Significance: 1500-4000 SimCoin (protests, occupations, demolition blocking)
+- **Earning Methods**: NFT generation, crowdfunding campaigns
+- **Dynamic Pricing**: Heat-based multipliers and emergency discounts
 
 ### Action Improvements  
 Enhanced action system with expanded action trees, combo mechanics, and deeper strategic gameplay.
@@ -183,16 +205,18 @@ Enhanced action system with expanded action trees, combo mechanics, and deeper s
 ## 🐛 Known Issues & Balance
 
 ### Current Balance Settings
-- Low risk actions (garden, meeting, intel): 20% casualty multiplier
-- Population factor: Scales from 5M-20M baseline
-- Heat factor: Exponential scaling above heat 30
-- AI Mayor aggression: 30% base + 0.5% per community power + heat bonuses
-- Cooldown formula: 500ms base + (heat/25)*150s + (power/12)*30s, max 180s
+- **Currency Mining**: Requires 1500+ citizens (0.01% of 15M population, threshold: 0.0001)
+- **Action Costs**: Significance-based (grassroots 50-200, organized 400-800, confrontational 1500-4000)
+- **Casualty System**: Resistance-size scaling prevents movement destruction
+- **Recruitment**: Population-percentage thresholds (0.01%, 0.1%) with mobilizing action bonuses
+- **Heat Penalties**: Reduce mining efficiency, increase action costs
+- **Low risk actions**: 10% casualty multiplier for organizing actions
 
 ### Debug Features Active
-- Force casualties: Currently enabled for testing (line 140 in actions.js)
+- Force casualties: Currently enabled for testing (line 183 in actions.js)
 - Console logging: Risk levels and casualty calculations
 - ESC key toggle: Debug panel with real-time game state
+- Inconsistent starting citizens: 1 on initial game, 100-300 on restart
 
 ## 🤝 Contributing
 

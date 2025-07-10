@@ -20,12 +20,17 @@
             <div id="statusBar">
                 <div class="status-section">
                     <div class="status-item">
+                        <span class="status-label">SimCoin:</span>
+                        <span class="status-value" id="simCoin" style="color: #f1c40f;">5000</span>
+                    </div>
+                    <div class="status-item">
                         <span class="status-label">Community Power:</span>
                         <span class="status-value" id="communityPower">0</span>
                     </div>
                     <div class="status-item">
                         <span class="status-label">Heat Level:</span>
                         <span class="status-value" id="heatLevel">0</span>
+                        <span class="status-indicator" id="heatCooldown" style="color: #e74c3c; font-size: 10px;"></span>
                     </div>
                     <div class="status-item">
                         <span class="status-label">Active Citizens:</span>
@@ -160,6 +165,24 @@
             <!-- Neighborhoods will be dynamically rendered here -->
         </div>
 
+        <!-- Currency Earning Panel -->
+        <div id="currencyPanel">
+            <div class="currency-header">💰 SIMCOIN EARNING</div>
+            <div class="currency-buttons">
+                <button class="currency-btn" id="nftBtn">
+                    <span class="currency-name">Generate NFT</span>
+                    <span class="currency-cost">Cost: Variable</span>
+                </button>
+                <button class="currency-btn" id="crowdfundBtn">
+                    <span class="currency-name">Crowdfunding</span>
+                    <span class="currency-cost">Cost: 500</span>
+                </button>
+                <div class="mining-status">
+                    <span class="mining-indicator" id="miningIndicator">⛏️ Mining: Inactive</span>
+                </div>
+            </div>
+        </div>
+
         <!-- AI Mayor Interface -->
         <div id="aiMayorInterface">
             <div class="ai-header">
@@ -197,7 +220,7 @@
             <!-- Additional AI sections can be added here -->
             <div class="ai-section">
                 <div class="ai-section-title">OPTIMIZATION QUEUE</div>
-                <div id="optimizationQueue" style="font-size: 10px;">
+                <div id="optimizationQueue" style="font-size: 12px;">
                     <div>Market District: Efficiency scan scheduled</div>
                     <div>Riverside: Property value analysis pending</div>
                 </div>
@@ -238,6 +261,9 @@
     <!-- AI Citizens system -->
     <script src="modules/ai-citizens.js"></script>
 
+    <!-- Currency system -->
+    <script src="modules/currency.js"></script>
+
     <!-- UI components and updates -->
     <script src="modules/ui-components.js"></script>
 
@@ -250,7 +276,7 @@
             // Check if all modules are loaded
             const requiredModules = [
                 'GameCore', 'Neighborhoods', 'Actions',
-                'AIMayor', 'AICitizens', 'UIComponents'
+                'AIMayor', 'AICitizens', 'UIComponents', 'Currency'
             ];
 
             const missingModules = requiredModules.filter(module =>
@@ -296,6 +322,9 @@
                 // Initialize UI
                 UIComponents.init();
 
+                // Initialize currency system
+                Currency.init();
+
                 // Add event listeners for action buttons
                 document.querySelectorAll('.action-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
@@ -314,6 +343,15 @@
                 // Add share button listener (future feature)
                 document.getElementById('shareBtn').addEventListener('click', () => {
                     UIComponents.shareGameResult();
+                });
+
+                // Add currency earning button listeners
+                document.getElementById('nftBtn').addEventListener('click', () => {
+                    Currency.generateNFT();
+                });
+
+                document.getElementById('crowdfundBtn').addEventListener('click', () => {
+                    Currency.startCrowdfunding();
                 });
 
                 // Add keyboard shortcuts
