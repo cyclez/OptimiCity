@@ -319,7 +319,7 @@ window.GameCore = (function () {
             // Apply heat change but respect minimum heat level (ratcheting effect)
             const newHeatLevel = Math.max(gameState.minHeatLevel, Math.min(100, gameState.heatLevel + change));
             gameState.heatLevel = newHeatLevel;
-            
+
             // Check if we've crossed any surveillance thresholds
             this.checkHeatThresholds();
         },
