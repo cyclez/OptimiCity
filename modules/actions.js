@@ -1,213 +1,509 @@
-// OptimiCity - Actions Module
-// Handles: Player actions, cooldowns, effects calculation
+// OptimiCity - Actions Module - FULLY COMMENTED VERSION
+// Handles: Player actions, cooldowns, effects calculation, casualties, recruitment
+//
+// DATA FLOW SUMMARY:
+// INPUT SOURCES: 
+//   - optimicity.html: User clicks action buttons → calls performAction()
+//   - game-core.js: Provides gameState via getState()
+//   - currency.js: Checks affordability, deducts SimCoin
+//   - neighborhoods.js: Provides selected neighborhood info
+//
+// OUTPUT TARGETS:
+//   - game-core.js: Updates communityPower, heatLevel, activeCitizens, imprisoned, killed
+//   - neighborhoods.js: Updates neighborhood resistance via updateNeighborhoodState()
+//   - ui-components.js: Logs actions, updates UI display
+//   - ai-mayor.js: Triggers AI response after 1s delay
+//   - ai-citizens.js: Triggers citizen response after 2.5s (25% chance)
+//
+// KEY TEMPORAL FLOWS:
+//   1. User clicks action → performAction() executes immediately
+//   2. Cooldown set → clearActionCooldown() after duration expires
+//   3. AI Mayor response → triggered after 1000ms delay
+//   4. Citizens response → triggered after 2500ms delay (25% probability)
+//   5. Button states → updated every 1000ms via setInterval
+//
+// CRITICAL SYSTEMS:
+//   - Per-action cooldowns: Each action in each neighborhood has separate cooldown
+//   - Global cooldown: 3-second heat system prevents rapid actions
+//   - Risk/Casualty system: Heat determines probability and severity of casualties
+//   - Recruitment system: Three phases based on active citizen count
+//   - Dynamic cooldown: Calculated based on heat and power gains
 
 window.Actions = (function () {
     'use strict';
 
-    // Action definitions
+    // ============================================================================
+    // ACTION DEFINITIONS - CORE DATA
+    // ============================================================================
+    // This object defines ALL player actions with their ranges
+    // STRUCTURE: { actionType: { power: [min, max], heat: [min, max], description } }
+    // READ BY: performAction() for effect calculation, getActionDefinition() for external access
+    // USED IN: calculateActionCooldown(), performAction(), updateActionButtonStates()
     const actionDefinitions = {
-        occupy: { power: [6, 10], heat: [12, 18], description: 'Organized building occupation' },
-        blockDemo: { power: [8, 12], heat: [15, 25], description: 'Blocked demolition crews' },
-        protest: { power: [5, 8], heat: [10, 15], description: 'Led protest march' },
-        streetArt: { power: [3, 6], heat: [4, 8], description: 'Created inspiring mural' },
-        garden: { power: [4, 7], heat: [2, 5], description: 'Planted community garden' },
-        festival: { power: [6, 9], heat: [6, 10], description: 'Organized block festival' },
-        hackCams: { power: [5, 8], heat: [8, 12], description: 'Disabled surveillance cameras' },
-        meshNet: { power: [4, 6], heat: [5, 8], description: 'Installed mesh network nodes' },
-        pirateBroad: { power: [7, 10], heat: [12, 16], description: 'Hijacked city communications' },
-        meeting: { power: [3, 5], heat: [1, 3], description: 'Held secret organizing meeting' },
-        recruit: { power: [5, 8], heat: [3, 6], description: 'Recruited new allies' },
-        intel: { power: [2, 4], heat: [1, 2], description: 'Gathered intelligence on AI Mayor' }
+        // DIRECT ACTION CATEGORY
+        occupy: {
+            power: [6, 10],                      // Community power gain range
+            heat: [12, 18],                      // Heat gain range
+            description: 'Organized building occupation'  // Used in AI prompts and logs
+        },
+        blockDemo: {
+            power: [8, 12],
+            heat: [15, 25],
+            description: 'Blocked demolition crews'
+        },
+        protest: {
+            power: [5, 8],
+            heat: [10, 15],
+            description: 'Led protest march'
+        },
+
+        // CULTURAL RESISTANCE CATEGORY
+        streetArt: {
+            power: [3, 6],
+            heat: [4, 8],
+            description: 'Created inspiring mural'
+        },
+        garden: {
+            power: [4, 7],
+            heat: [2, 5],
+            description: 'Planted community garden'
+        },
+        festival: {
+            power: [6, 9],
+            heat: [6, 10],
+            description: 'Organized block festival'
+        },
+
+        // INFRASTRUCTURE HACK CATEGORY
+        hackCams: {
+            power: [5, 8],
+            heat: [8, 12],
+            description: 'Disabled surveillance cameras'
+        },
+        meshNet: {
+            power: [4, 6],
+            heat: [5, 8],
+            description: 'Installed mesh network nodes'
+        },
+        pirateBroad: {
+            power: [7, 10],
+            heat: [12, 16],
+            description: 'Hijacked city communications'
+        },
+
+        // ORGANIZING CATEGORY
+        meeting: {
+            power: [3, 5],
+            heat: [1, 3],
+            description: 'Held secret organizing meeting'
+        },
+        recruit: {
+            power: [5, 8],
+            heat: [3, 6],
+            description: 'Recruited new allies'
+        },
+        intel: {
+            power: [2, 4],
+            heat: [1, 2],
+            description: 'Gathered intelligence on AI Mayor'
+        }
     };
 
-    // Calculate dynamic cooldown based on heat and power
+    // ============================================================================
+    // DYNAMIC COOLDOWN CALCULATOR
+    // ============================================================================
+    // INPUT: heatGain (from action), powerGain (from action)
+    // OUTPUT: Cooldown duration in milliseconds (500ms - 180000ms)
+    // CALLED BY: performAction() after calculating action effects
+    // FORMULA: min(180000, 500 + (heatGain/25)*150000 + (powerGain/12)*30000)
+    // PURPOSE: Higher risk/reward actions have longer cooldowns
     function calculateActionCooldown(heatGain, powerGain) {
-        // Base cooldown: 500ms
-        const baseCooldown = 500;
+        // Base cooldown: always at least 500ms
+        const baseCooldown = 500;                // CONSTANT: Minimum cooldown
 
         // Heat factor: more heat = longer cooldown (up to 2.5 minutes extra)
-        const heatFactor = (heatGain / 25) * 150000; // 150 seconds max from heat
+        // FORMULA: (heatGain / 25) * 150000
+        // EXAMPLE: heatGain=25 → 150s, heatGain=12.5 → 75s
+        const heatFactor = (heatGain / 25) * 150000;  // Max 150,000ms (150 seconds)
 
         // Power factor: more power = slightly longer cooldown (up to 30 seconds extra)
-        const powerFactor = (powerGain / 12) * 30000; // 30 seconds max from power
+        // FORMULA: (powerGain / 12) * 30000
+        // EXAMPLE: powerGain=12 → 30s, powerGain=6 → 15s
+        const powerFactor = (powerGain / 12) * 30000;  // Max 30,000ms (30 seconds)
 
-        // Total cooldown (max 3 minutes = 180000ms)
-        return Math.min(180000, baseCooldown + heatFactor + powerFactor);
+        // Total cooldown (capped at 3 minutes)
+        // OUTPUT: Used by GameCore.setActionCooldown()
+        return Math.min(180000, baseCooldown + heatFactor + powerFactor);  // CONSTANT: Max 180,000ms (3 minutes)
     }
 
-    // Calculate action risk based on heat level
+    // ============================================================================
+    // RISK LEVEL CALCULATOR
+    // ============================================================================
+    // INPUT: gameState (specifically gameState.heatLevel)
+    // OUTPUT: Risk level string ('low', 'medium', 'high', 'extreme')
+    // CALLED BY: performAction() to determine casualty probability
+    // USED BY: calculateCasualties(), getRiskProbability()
     function calculateActionRisk(gameState) {
-        const heatLevel = gameState.heatLevel;
+        const heatLevel = gameState.heatLevel;   // INPUT: From game-core.js
 
-        if (heatLevel < 25) return 'low';
-        if (heatLevel < 50) return 'medium';
-        if (heatLevel < 75) return 'high';
-        return 'extreme';
+        // Risk thresholds based on heat
+        if (heatLevel < 25) return 'low';        // CONSTANT: 0-24 heat
+        if (heatLevel < 50) return 'medium';     // CONSTANT: 25-49 heat
+        if (heatLevel < 75) return 'high';       // CONSTANT: 50-74 heat
+        return 'extreme';                        // CONSTANT: 75-100 heat
     }
 
-    // Helper functions
+    // ============================================================================
+    // CASUALTY PROBABILITY LOOKUP
+    // ============================================================================
+    // INPUT: riskLevel (from calculateActionRisk)
+    // OUTPUT: Probability as decimal (0.05 to 0.75)
+    // CALLED BY: performAction() to determine if casualties occur
     function getRiskProbability(riskLevel) {
         switch (riskLevel) {
-            case 'low': return 0.05;      // 5% chance
-            case 'medium': return 0.25;   // 25% chance  
-            case 'high': return 0.55;     // 55% chance
-            case 'extreme': return 0.75;  // 75% chance
+            case 'low': return 0.05;             // CONSTANT: 5% chance of casualties
+            case 'medium': return 0.25;          // CONSTANT: 25% chance
+            case 'high': return 0.55;            // CONSTANT: 55% chance
+            case 'extreme': return 0.75;         // CONSTANT: 75% chance
             default: return 0;
         }
     }
 
+    // ============================================================================
+    // CASUALTY CALCULATOR - COMPLEX SCALING SYSTEM
+    // ============================================================================
+    // INPUT: riskLevel (string), actionType (string)
+    // OUTPUT: { killed: number, imprisoned: number }
+    // CALLED BY: performAction() if casualty probability check succeeds
+    // PURPOSE: Calculate realistic casualties based on resistance size and risk
     function calculateCasualties(riskLevel, actionType) {
-        const gameState = window.GameCore.getState();
+        // Get current game state
+        const gameState = window.GameCore.getState();  // INPUT: From game-core.js
+
+        // Action type classification
+        // CONSTANT: Direct actions are more dangerous
         const directActions = ['occupy', 'blockDemo', 'protest'];
+        // CONSTANT: Low-risk actions have 90% casualty reduction
         const lowRiskActions = ['garden', 'meeting', 'intel'];
+
         const isDirectAction = directActions.includes(actionType);
         const isLowRiskAction = lowRiskActions.includes(actionType);
 
-        // Scale casualties based on active resistance size (not total population)
+        // ========================================================================
+        // SIZE FACTOR: Scale casualties based on active resistance size
+        // ========================================================================
+        // INPUT: gameState.activeCitizens
+        // PURPOSE: Smaller movements face proportionally fewer casualties
         const activeCitizens = gameState.activeCitizens;
-        
-        // Risk factor: smaller movements face less casualties but are more vulnerable
-        let sizeFactor;
-        if (activeCitizens < 100) sizeFactor = 0.1;          // Small groups: 10% risk
-        else if (activeCitizens < 1000) sizeFactor = 0.3;    // Medium groups: 30% risk
-        else sizeFactor = 0.5;                               // Large movements: 50% risk
 
-        // Heat level-based scaling (reduced impact)
+        let sizeFactor;
+        if (activeCitizens < 100) {
+            sizeFactor = 0.1;                    // CONSTANT: Small groups (10% risk)
+        } else if (activeCitizens < 1000) {
+            sizeFactor = 0.3;                    // CONSTANT: Medium groups (30% risk)
+        } else {
+            sizeFactor = 0.5;                    // CONSTANT: Large movements (50% risk)
+        }
+
+        // ========================================================================
+        // HEAT FACTOR: Higher heat = more violent repression
+        // ========================================================================
+        // INPUT: gameState.heatLevel
+        // FORMULA: max(0.5, heatLevel / 100)
+        // PURPOSE: Heat amplifies casualties (minimum 50% of base)
         const heatFactor = Math.max(0.5, gameState.heatLevel / 100);
 
         let killed = 0;
         let imprisoned = 0;
 
-        // Low risk actions have greatly reduced penalties
+        // ========================================================================
+        // LOW-RISK MULTIPLIER: Organizing actions are much safer
+        // ========================================================================
+        // CONSTANT: Low-risk actions get 90% casualty reduction
         const lowRiskMultiplier = isLowRiskAction ? 0.1 : 1.0;
 
+        // ========================================================================
+        // CASUALTY CALCULATION BY RISK LEVEL
+        // ========================================================================
+        // Each risk level has different base casualty ranges
+        // FORMULA: floor(random * range × sizeFactor × [heatFactor] × lowRiskMultiplier)
         switch (riskLevel) {
             case 'low':
+                // Base: 1-2 imprisoned
                 imprisoned = Math.floor((Math.random() * 2 + 1) * sizeFactor * lowRiskMultiplier);
-                // Rare deaths for low risk
+
+                // Rare deaths for direct actions only
+                // CONSTANT: 5% chance of 1 death even at low risk
                 if (isDirectAction && Math.random() < 0.05) {
                     killed = 1;
                 }
                 break;
+
             case 'medium':
+                // Base: 2-7 imprisoned
                 imprisoned = Math.floor((Math.random() * 5 + 2) * sizeFactor * lowRiskMultiplier);
+
+                // Occasional deaths for direct actions
+                // CONSTANT: 15% chance of 1-2 deaths
                 if (isDirectAction && Math.random() < 0.15) {
                     killed = Math.floor((Math.random() * 2 + 1) * sizeFactor * lowRiskMultiplier);
                 }
                 break;
+
             case 'high':
+                // Base: 3-11 imprisoned (scaled by heat)
                 imprisoned = Math.floor((Math.random() * 8 + 3) * sizeFactor * heatFactor * lowRiskMultiplier);
+
+                // Base: 1-4 killed (scaled by heat)
                 killed = Math.floor((Math.random() * 3 + 1) * sizeFactor * heatFactor * lowRiskMultiplier);
+
+                // Direct actions get additional casualties
                 if (isDirectAction) {
                     killed += Math.floor((Math.random() * 2 + 1) * sizeFactor);
                 }
                 break;
+
             case 'extreme':
+                // Base: 5-17 imprisoned (scaled by heat)
                 imprisoned = Math.floor((Math.random() * 12 + 5) * sizeFactor * heatFactor * lowRiskMultiplier);
+
+                // Base: 2-7 killed (scaled by heat)
                 killed = Math.floor((Math.random() * 5 + 2) * sizeFactor * heatFactor * lowRiskMultiplier);
+
+                // Direct actions get heavy additional casualties
                 if (isDirectAction) {
                     killed += Math.floor((Math.random() * 3 + 1) * sizeFactor * heatFactor);
                 }
                 break;
         }
 
+        // OUTPUT: Object with calculated casualties
         return { killed, imprisoned };
     }
 
-    // Perform action
+    // ============================================================================
+    // PERFORM ACTION - MAIN ACTION EXECUTION FUNCTION
+    // ============================================================================
+    // This is the CORE FUNCTION that executes when a player takes any action
+    // INPUT: actionType (string like 'occupy', 'protest', etc.)
+    // OUTPUT: Multiple side effects (state changes, UI updates, AI triggers)
+    // CALLED BY: optimicity.html event listeners on action buttons
+    // TRIGGERS: game-core updates, UI updates, AI responses, neighborhood updates
     async function performAction(actionType) {
+        // ====================================================================
+        // STEP 1: GET CURRENT GAME STATE
+        // ====================================================================
+        // INPUT: None
+        // OUTPUT: gameState object from game-core.js
         const gameState = window.GameCore.getState();
 
-        // Check if this specific action in this neighborhood is on cooldown
+        // ====================================================================
+        // STEP 2: CHECK PER-ACTION COOLDOWN
+        // ====================================================================
+        // PURPOSE: Each action in each neighborhood has separate cooldown
+        // KEY FORMAT: 'actionType_neighborhoodId' (e.g., 'occupy_market')
         const cooldownKey = `${actionType}_${gameState.selectedNeighborhood}`;
+
+        // CHECK: Is this specific action still on cooldown in this neighborhood?
+        // INPUT: cooldownKey
+        // CALLS: game-core.js isActionOnCooldown()
         if (window.GameCore.isActionOnCooldown(cooldownKey)) {
             if (window.UIComponents) {
+                // OUTPUT: Log message to UI
                 window.UIComponents.addLogEntry(`${actionType} is still on cooldown in this neighborhood.`);
             }
-            return;
+            return;  // ABORT: Action not available yet
         }
 
-        // Check global action cooldown (heat system)
+        // ====================================================================
+        // STEP 3: CHECK GLOBAL COOLDOWN (HEAT SYSTEM)
+        // ====================================================================
+        // PURPOSE: 3-second cooldown between ANY actions to prevent spam
+        // CALLS: game-core.js isGlobalActionOnCooldown()
         if (window.GameCore.isGlobalActionOnCooldown()) {
+            // Get remaining time for user feedback
             const remaining = Math.ceil(window.GameCore.getGlobalActionCooldownRemaining() / 1000);
+
             if (window.UIComponents) {
+                // OUTPUT: Warning message with countdown
                 window.UIComponents.addLogEntry(`⏱️ Action too rapid! Wait ${remaining}s to avoid surveillance detection.`, 'system');
             }
-            return;
+            return;  // ABORT: Too soon since last action
         }
 
+        // ====================================================================
+        // STEP 4: CHECK NEIGHBORHOOD SELECTION
+        // ====================================================================
+        // INPUT: gameState.selectedNeighborhood (set by neighborhoods.js)
         if (!gameState.selectedNeighborhood) {
             if (window.UIComponents) {
+                // OUTPUT: Instruction to select neighborhood
                 window.UIComponents.addLogEntry("Select a neighborhood first to take action.");
             }
-            return;
+            return;  // ABORT: No target selected
         }
 
-        // Check if player can afford the action
+        // ====================================================================
+        // STEP 5: CHECK AFFORDABILITY (CURRENCY SYSTEM)
+        // ====================================================================
+        // CALLS: currency.js canAffordAction()
+        // INPUT: actionType
         if (window.Currency && !window.Currency.canAffordAction(actionType)) {
+            // Get cost for user feedback
+            // CALLS: currency.js getActionCost()
             const cost = window.Currency.getActionCost(actionType);
+
             if (window.UIComponents) {
+                // OUTPUT: Insufficient funds message
                 window.UIComponents.addLogEntry(`Insufficient SimCoin for ${actionType}. Need ${cost.toLocaleString()} SimCoin.`, 'system');
             }
-            return;
+            return;  // ABORT: Cannot afford action
         }
 
+        // ====================================================================
+        // STEP 6: GET ACTION DATA
+        // ====================================================================
+        // Find the target neighborhood from gameState
+        // INPUT: gameState.neighborhoods array, gameState.selectedNeighborhood
         const neighborhood = gameState.neighborhoods.find(n => n.id === gameState.selectedNeighborhood);
+
+        // Get action definition
+        // INPUT: actionType
+        // SOURCE: actionDefinitions object
         const action = actionDefinitions[actionType];
 
-        if (!neighborhood || !action) return;
+        // Safety check
+        if (!neighborhood || !action) return;  // ABORT: Invalid data
 
-        // Purchase the action (deduct SimCoin)
+        // ====================================================================
+        // STEP 7: PURCHASE ACTION (DEDUCT SIMCOIN)
+        // ====================================================================
+        // CALLS: currency.js purchaseAction()
+        // OUTPUT: Deducts SimCoin from gameState
         if (window.Currency && !window.Currency.purchaseAction(actionType)) {
             if (window.UIComponents) {
+                // OUTPUT: Transaction error message
                 window.UIComponents.addLogEntry(`Failed to purchase ${actionType}. Transaction error.`, 'system');
             }
-            return;
+            return;  // ABORT: Purchase failed
         }
 
-        // Calculate effects
+        // ====================================================================
+        // STEP 8: CALCULATE ACTION EFFECTS
+        // ====================================================================
+        // Random values within action's defined range
+        // INPUT: action.power[min, max], action.heat[min, max]
+        // FORMULA: floor(random * (max - min + 1)) + min
         const powerGain = Math.floor(Math.random() * (action.power[1] - action.power[0] + 1)) + action.power[0];
         const heatGain = Math.floor(Math.random() * (action.heat[1] - action.heat[0] + 1)) + action.heat[0];
 
-        // Calculate dynamic cooldown
+        // ====================================================================
+        // STEP 9: CALCULATE DYNAMIC COOLDOWN
+        // ====================================================================
+        // CALLS: calculateActionCooldown()
+        // INPUT: heatGain, powerGain
+        // OUTPUT: Cooldown duration (500ms - 180000ms)
         const cooldownDuration = calculateActionCooldown(heatGain, powerGain);
 
-        // Calculate risk level
+        // ====================================================================
+        // STEP 10: CALCULATE RISK LEVEL
+        // ====================================================================
+        // CALLS: calculateActionRisk()
+        // INPUT: gameState (uses heatLevel)
+        // OUTPUT: 'low', 'medium', 'high', or 'extreme'
         const riskLevel = calculateActionRisk(gameState);
 
-        // Start cooldown with dynamic duration per neighborhood
+        // ====================================================================
+        // STEP 11: SET ACTION COOLDOWN
+        // ====================================================================
+        // Start cooldown for this specific action in this neighborhood
+        // CALLS: game-core.js setActionCooldown()
+        // OUTPUT: Sets gameState.actionCooldowns[cooldownKey] = timestamp
         window.GameCore.setActionCooldown(cooldownKey, cooldownDuration);
 
+        // Schedule cooldown clear
+        // TRIGGERS: clearActionCooldown() after duration expires
+        // SIDE EFFECT: Updates button states after cooldown
         setTimeout(() => {
             window.GameCore.clearActionCooldown(cooldownKey);
-            updateActionButtonStates();
+            updateActionButtonStates();  // TRIGGERS: UI update
         }, cooldownDuration);
 
-        // Apply effects to game state
+        // ====================================================================
+        // STEP 12: APPLY CORE EFFECTS TO GAME STATE
+        // ====================================================================
+        // Update community power
+        // CALLS: game-core.js updateCommunityPower()
+        // OUTPUT: Modifies gameState.communityPower (+powerGain)
         window.GameCore.updateCommunityPower(powerGain);
+
+        // Update heat level
+        // CALLS: game-core.js updateHeatLevel()
+        // OUTPUT: Modifies gameState.heatLevel (+heatGain)
+        // SIDE EFFECT: May trigger heat threshold checks
         window.GameCore.updateHeatLevel(heatGain);
 
-        // Check for spam penalty and set global cooldown
+        // ====================================================================
+        // STEP 13: CHECK SPAM PENALTY
+        // ====================================================================
+        // PURPOSE: Penalize rapid-fire actions with extra heat
+        // CALLS: game-core.js checkSpamPenalty()
+        // OUTPUT: May add +2 to +8 heat depending on timing
         window.GameCore.checkSpamPenalty();
+
+        // Set global cooldown timestamp
+        // CALLS: game-core.js setGlobalActionCooldown()
+        // OUTPUT: Sets gameState.lastActionTime = now
         window.GameCore.setGlobalActionCooldown();
 
-        // Check for casualties based on risk level
+        // ====================================================================
+        // STEP 14: CASUALTY SYSTEM
+        // ====================================================================
+        // Check if casualties occur based on risk probability
         console.log(`Risk level: ${riskLevel}, Heat: ${gameState.heatLevel}`);
-        const forceCasualties = false; // Use actual probability system
+
+        const forceCasualties = false;  // DEBUG: Can force casualties for testing
+
+        // Roll for casualties
+        // INPUT: Risk probability from getRiskProbability()
+        // FORMULA: random < probability
         if (forceCasualties || Math.random() < getRiskProbability(riskLevel)) {
+            // Calculate casualty numbers
+            // CALLS: calculateCasualties()
+            // INPUT: riskLevel, actionType
+            // OUTPUT: { killed: number, imprisoned: number }
             const casualties = calculateCasualties(riskLevel, actionType);
             console.log(`Casualties calculated:`, casualties);
+
+            // Process killed
             if (casualties.killed > 0) {
+                // CALLS: game-core.js updateCitizensKilled()
+                // OUTPUT: Increments gameState.citizensKilled
+                // SIDE EFFECT: Also decreases gameState.totalPopulation
                 window.GameCore.updateCitizensKilled(casualties.killed);
+
+                // CALLS: game-core.js updateActiveCitizens()
+                // OUTPUT: Decreases gameState.activeCitizens
                 window.GameCore.updateActiveCitizens(-casualties.killed);
+
                 if (window.UIComponents) {
+                    // OUTPUT: Log casualties
                     window.UIComponents.addLogEntry(`💀 ${casualties.killed} citizens killed by AI Mayor forces`, 'ai');
                 }
             }
+
+            // Process imprisoned
             if (casualties.imprisoned > 0) {
+                // CALLS: game-core.js updateCitizensImprisoned()
+                // OUTPUT: Increments gameState.citizensImprisoned
                 window.GameCore.updateCitizensImprisoned(casualties.imprisoned);
+
+                // CALLS: game-core.js updateActiveCitizens()
+                // OUTPUT: Decreases gameState.activeCitizens
                 window.GameCore.updateActiveCitizens(-casualties.imprisoned);
+
                 if (window.UIComponents) {
+                    // OUTPUT: Log arrests
                     window.UIComponents.addLogEntry(`🚔 ${casualties.imprisoned} citizens arrested`, 'ai');
                 }
             }
@@ -215,95 +511,136 @@ window.Actions = (function () {
             console.log(`No casualties this time - probability was ${getRiskProbability(riskLevel)}`);
         }
 
-        // Population-aware staged recruitment system
-        const culturalActions = ['streetArt', 'garden', 'festival'];
-        const organizingActions = ['meeting', 'recruit', 'intel'];
-        const mobilizingActions = ['protest']; // High-visibility actions that inspire people
-        
+        // ====================================================================
+        // STEP 15: RECRUITMENT SYSTEM (THREE-PHASE SCALING)
+        // ====================================================================
+        // PURPOSE: Actions that organize/inspire recruit new resistance members
+        // PHASES: Individual Network → Local Movement → City-Wide Resistance
+
+        // Action categories that trigger recruitment
+        const culturalActions = ['streetArt', 'garden', 'festival'];       // CONSTANT: Inspire through culture
+        const organizingActions = ['meeting', 'recruit', 'intel'];         // CONSTANT: Direct organizing
+        const mobilizingActions = ['protest'];                             // CONSTANT: High-visibility mobilization
+
+        // Check if this action type triggers recruitment
         if (organizingActions.includes(actionType) || culturalActions.includes(actionType) || mobilizingActions.includes(actionType)) {
-            const currentCitizens = gameState.activeCitizens;
-            const totalPopulation = gameState.totalPopulation;
-            
-            // Calculate population thresholds for phases
-            const phase1Threshold = Math.floor(totalPopulation * 0.0001); // 0.01% of population
-            const phase2Threshold = Math.floor(totalPopulation * 0.001);  // 0.1% of population
-            
+            // Get current resistance size
+            const currentCitizens = gameState.activeCitizens;      // INPUT: From game-core.js
+            const totalPopulation = gameState.totalPopulation;      // INPUT: From game-core.js
+
+            // ================================================================
+            // PHASE THRESHOLDS
+            // ================================================================
+            // Calculate population-based thresholds for phase transitions
+            // FORMULA: floor(totalPopulation × percentage)
+            const phase1Threshold = Math.floor(totalPopulation * 0.0001);  // CONSTANT: 0.01% of population
+            const phase2Threshold = Math.floor(totalPopulation * 0.001);   // CONSTANT: 0.1% of population
+
             let citizenGain = 0;
             let phaseName = '';
-            
+
+            // ================================================================
+            // PHASE 1: INDIVIDUAL NETWORK (<0.01% of population)
+            // ================================================================
+            // CHARACTERISTICS: Fixed small numbers, building initial core
             if (currentCitizens < phase1Threshold) {
-                // PHASE 1: Individual Network (fixed small numbers)
                 phaseName = 'Individual Network';
+
                 if (mobilizingActions.includes(actionType)) {
-                    citizenGain = Math.floor(Math.random() * 21) + 15; // 15-35 citizens (protests inspire!)
+                    // CONSTANT: Protests inspire more people (15-35)
+                    citizenGain = Math.floor(Math.random() * 21) + 15;
                 } else if (organizingActions.includes(actionType)) {
-                    citizenGain = Math.floor(Math.random() * 16) + 10; // 10-25 citizens
+                    // CONSTANT: Direct organizing (10-25)
+                    citizenGain = Math.floor(Math.random() * 16) + 10;
                 } else {
-                    citizenGain = Math.floor(Math.random() * 13) + 5;  // 5-17 citizens  
+                    // CONSTANT: Cultural actions (5-17)
+                    citizenGain = Math.floor(Math.random() * 13) + 5;
                 }
-                
+
+                // ================================================================
+                // PHASE 2: LOCAL MOVEMENT (0.01% - 0.1% of population)
+                // ================================================================
+                // CHARACTERISTICS: Small percentage-based growth, local networks
             } else if (currentCitizens < phase2Threshold) {
-                // PHASE 2: Local Movement (small percentage-based)
                 phaseName = 'Local Movement';
+
+                // Calculate available population (not yet active)
                 const availablePopulation = totalPopulation - currentCitizens;
-                
+
                 if (mobilizingActions.includes(actionType)) {
-                    // 0.01% to 0.05% of available population (protests get double organizing rates)
+                    // FORMULA: 0.01% to 0.05% of available (min 50, max 1000)
                     const minRate = Math.floor(availablePopulation * 0.0001);
                     const maxRate = Math.floor(availablePopulation * 0.0005);
                     citizenGain = Math.max(50, Math.min(1000, minRate + Math.floor(Math.random() * (maxRate - minRate + 1))));
                 } else if (organizingActions.includes(actionType)) {
-                    // 0.005% to 0.02% of available population
+                    // FORMULA: 0.005% to 0.02% of available (min 10, max 500)
                     const minRate = Math.floor(availablePopulation * 0.00005);
                     const maxRate = Math.floor(availablePopulation * 0.0002);
                     citizenGain = Math.max(10, Math.min(500, minRate + Math.floor(Math.random() * (maxRate - minRate + 1))));
                 } else {
-                    // 0.002% to 0.01% of available population  
+                    // FORMULA: 0.002% to 0.01% of available (min 5, max 200)
                     const minRate = Math.floor(availablePopulation * 0.00002);
                     const maxRate = Math.floor(availablePopulation * 0.0001);
                     citizenGain = Math.max(5, Math.min(200, minRate + Math.floor(Math.random() * (maxRate - minRate + 1))));
                 }
-                
+
+                // ================================================================
+                // PHASE 3: CITY-WIDE RESISTANCE (>0.1% of population)
+                // ================================================================
+                // CHARACTERISTICS: Full percentage system, mass movement
             } else {
-                // PHASE 3: City-Wide Resistance (full percentage system)
                 phaseName = 'City-Wide Resistance';
+
+                // Calculate available population
                 const availablePopulation = totalPopulation - currentCitizens;
-                
+
                 if (mobilizingActions.includes(actionType)) {
-                    // 0.2% to 1.0% of available population (massive protest recruitment)
+                    // FORMULA: 0.2% to 1.0% of available (min 500)
                     const minRate = Math.floor(availablePopulation * 0.002);
                     const maxRate = Math.floor(availablePopulation * 0.01);
                     citizenGain = Math.max(500, Math.min(maxRate, minRate + Math.floor(Math.random() * (maxRate - minRate + 1))));
                 } else if (organizingActions.includes(actionType)) {
-                    // 0.1% to 0.5% of available population
+                    // FORMULA: 0.1% to 0.5% of available (min 100)
                     const minRate = Math.floor(availablePopulation * 0.001);
                     const maxRate = Math.floor(availablePopulation * 0.005);
                     citizenGain = Math.max(100, Math.min(maxRate, minRate + Math.floor(Math.random() * (maxRate - minRate + 1))));
                 } else {
-                    // 0.05% to 0.2% of available population
+                    // FORMULA: 0.05% to 0.2% of available (min 50)
                     const minRate = Math.floor(availablePopulation * 0.0005);
                     const maxRate = Math.floor(availablePopulation * 0.002);
                     citizenGain = Math.max(50, Math.min(maxRate, minRate + Math.floor(Math.random() * (maxRate - minRate + 1))));
                 }
             }
-            
-            // Apply the recruitment
+
+            // ================================================================
+            // APPLY RECRUITMENT
+            // ================================================================
             if (citizenGain > 0) {
+                // Update active citizens count
+                // CALLS: game-core.js updateActiveCitizens()
+                // OUTPUT: Increases gameState.activeCitizens
                 window.GameCore.updateActiveCitizens(citizenGain);
-                
+
+                // Calculate new total and percentage
                 const newTotal = currentCitizens + citizenGain;
                 const populationPercentage = (newTotal / totalPopulation * 100).toFixed(3);
-                
+
+                // Log recruitment message
                 if (window.UIComponents) {
+                    // Different messages for different action types
                     if (mobilizingActions.includes(actionType)) {
+                        // OUTPUT: Protest recruitment message
                         window.UIComponents.addLogEntry(`✊ ${phaseName}: Protest mobilized ${citizenGain.toLocaleString()} new resistance members (${populationPercentage}% of city)`, 'player');
                     } else if (organizingActions.includes(actionType)) {
+                        // OUTPUT: Organizing recruitment message
                         window.UIComponents.addLogEntry(`📢 ${phaseName}: Recruited ${citizenGain.toLocaleString()} new resistance members (${populationPercentage}% of city)`, 'player');
                     } else {
+                        // OUTPUT: Cultural inspiration message
                         window.UIComponents.addLogEntry(`🎭 ${phaseName}: Inspired ${citizenGain.toLocaleString()} citizens to join (${populationPercentage}% of city)`, 'player');
                     }
-                    
-                    // Phase transition notifications
+
+                    // Check for phase transitions
+                    // OUTPUT: Notification when crossing phase thresholds
                     if (currentCitizens < phase1Threshold && newTotal >= phase1Threshold) {
                         window.UIComponents.addLogEntry(`🎉 PHASE 2 UNLOCKED: Local Movement - Better recruitment rates available!`, 'system');
                     }
@@ -314,158 +651,274 @@ window.Actions = (function () {
             }
         }
 
-        // Apply effects to neighborhood
+        // ====================================================================
+        // STEP 16: UPDATE NEIGHBORHOOD STATE
+        // ====================================================================
+        // Apply resistance increase to the target neighborhood
+        // CALLS: neighborhoods.js updateNeighborhoodState()
+        // INPUT: neighborhood.id, powerGain
+        // OUTPUT: Increases neighborhood.resistance
         if (window.Neighborhoods) {
             window.Neighborhoods.updateNeighborhoodState(neighborhood.id, powerGain);
         }
 
-        // Log action with cost and effects
+        // ====================================================================
+        // STEP 17: LOG ACTION TO UI
+        // ====================================================================
         if (window.UIComponents) {
+            // Get action cost for logging
+            // CALLS: currency.js getActionCost()
             const cost = window.Currency ? window.Currency.getActionCost(actionType) : 0;
+
+            // OUTPUT: Action description log
             window.UIComponents.addLogEntry(`${action.description} in ${neighborhood.name}`, 'player');
+
+            // OUTPUT: Cost and effects log
             window.UIComponents.addLogEntry(`-${cost.toLocaleString()} SimCoin, +${powerGain} power, +${heatGain} heat`, 'player');
 
+            // OUTPUT: Risk warning for dangerous operations
             if (riskLevel !== 'low') {
                 window.UIComponents.addLogEntry(`⚠️ ${riskLevel.toUpperCase()} risk operation - surveillance heavy`, 'player');
             }
 
+            // OUTPUT: Cooldown notification
             const cooldownSeconds = Math.round(cooldownDuration / 1000);
             if (cooldownSeconds > 2) {
                 window.UIComponents.addLogEntry(`🕐 ${actionType} cooldown in ${neighborhood.name}: ${cooldownSeconds}s`, 'system');
             }
         }
 
-        // Update UI
+        // ====================================================================
+        // STEP 18: UPDATE UI DISPLAY
+        // ====================================================================
+        // Refresh all UI elements with new game state
+        // CALLS: ui-components.js updateAll()
+        // OUTPUT: Updates all status bar values, metrics
         if (window.UIComponents) {
             window.UIComponents.updateAll();
         }
 
+        // Re-render neighborhoods with new resistance values
+        // CALLS: neighborhoods.js renderAll()
+        // OUTPUT: Updates neighborhood visual display
         if (window.Neighborhoods) {
             window.Neighborhoods.renderAll();
         }
 
-        // Update button states immediately
+        // Update action button states immediately
+        // CALLS: updateActionButtonStates() (below)
+        // OUTPUT: Updates button availability and cooldown displays
         updateActionButtonStates();
 
-        // Get AI responses (AI Mayor responds to every action, Citizens occasionally)
+        // ====================================================================
+        // STEP 19: TRIGGER AI MAYOR RESPONSE (DELAYED)
+        // ====================================================================
+        // Always trigger AI Mayor response after 1 second delay
+        // PURPOSE: Give time for UI updates before AI response
         setTimeout(async () => {
             if (window.AIMayor) {
+                // CALLS: ai-mayor.js getResponse()
+                // INPUT: action.description, neighborhood.name
+                // OUTPUT: AI Mayor text response (via LLM or fallback)
                 const aiResponse = await window.AIMayor.getResponse(action.description, neighborhood.name);
+
                 if (window.UIComponents) {
+                    // OUTPUT: Log AI Mayor response
                     window.UIComponents.addLogEntry(aiResponse, 'ai');
+
+                    // OUTPUT: Update AI interface metrics
                     window.UIComponents.updateAIInterface(aiResponse);
                 }
             }
-        }, 1000);
+        }, 1000);  // CONSTANT: 1000ms delay
 
-        if (Math.random() < 0.25) {
+        // ====================================================================
+        // STEP 20: TRIGGER CITIZENS RESPONSE (DELAYED, PROBABILISTIC)
+        // ====================================================================
+        // 25% chance of citizens responding after 2.5 second delay
+        // PURPOSE: Not every action gets community response
+        if (Math.random() < 0.25) {  // CONSTANT: 25% probability
             setTimeout(async () => {
                 if (window.AICitizens) {
+                    // CALLS: ai-citizens.js getResponse()
+                    // INPUT: action.description, neighborhood.name
+                    // OUTPUT: Citizens text response (via LLM or fallback)
                     const citizenResponse = await window.AICitizens.getResponse(action.description, neighborhood.name);
+
                     if (window.UIComponents) {
+                        // OUTPUT: Log citizens response
                         window.UIComponents.addLogEntry(citizenResponse, 'citizen');
                     }
                 }
-            }, 2500);
+            }, 2500);  // CONSTANT: 2500ms delay
         }
 
-        // Check victory conditions
+        // ====================================================================
+        // STEP 21: CHECK VICTORY CONDITIONS
+        // ====================================================================
+        // After all effects applied, check if game should end
+        // CALLS: game-core.js checkVictoryConditions()
+        // OUTPUT: May trigger game over if victory/defeat conditions met
         window.GameCore.checkVictoryConditions();
     }
 
-    // Check if action is available
+    // ============================================================================
+    // CAN PERFORM ACTION - AVAILABILITY CHECKER
+    // ============================================================================
+    // INPUT: actionType (string)
+    // OUTPUT: Boolean (true if action can be performed)
+    // CALLED BY: updateActionButtonStates() to enable/disable buttons
+    // PURPOSE: Central validation for all action requirements
     function canPerformAction(actionType) {
-        const gameState = window.GameCore.getState();
+        // Get current game state
+        const gameState = window.GameCore.getState();  // INPUT: From game-core.js
 
+        // CHECK 1: Must have neighborhood selected
         if (!gameState.selectedNeighborhood) return false;
+
+        // CHECK 2: Game must be active
         if (!gameState.isActive) return false;
 
-        // Check cooldown for this specific action in this neighborhood
+        // CHECK 3: Per-action cooldown
+        // CALLS: game-core.js isActionOnCooldown()
         const cooldownKey = `${actionType}_${gameState.selectedNeighborhood}`;
         if (window.GameCore.isActionOnCooldown(cooldownKey)) return false;
 
-        // Check global action cooldown (heat system)
+        // CHECK 4: Global cooldown (heat system)
+        // CALLS: game-core.js isGlobalActionOnCooldown()
         if (window.GameCore.isGlobalActionOnCooldown()) return false;
 
-        // Check if player can afford the action
+        // CHECK 5: Affordability
+        // CALLS: currency.js canAffordAction()
         if (window.Currency && !window.Currency.canAffordAction(actionType)) return false;
 
-        // Special action requirements
+        // ====================================================================
+        // SPECIAL ACTION REQUIREMENTS
+        // ====================================================================
         switch (actionType) {
             case 'blockDemo':
-                // Can only block demolition if neighborhood is threatened
+                // REQUIREMENT: Can only block demolition if neighborhood is threatened
+                // CALLS: neighborhoods.js getSelectedNeighborhood()
+                // INPUT: neighborhood.threatened status
                 const neighborhood = window.Neighborhoods ?
                     window.Neighborhoods.getSelectedNeighborhood() : null;
                 return neighborhood && neighborhood.threatened;
+
             case 'pirateBroad':
-                // Requires high coordination
-                return gameState.communityPower >= 20;
+                // REQUIREMENT: Requires high coordination (20+ community power)
+                // INPUT: gameState.communityPower
+                return gameState.communityPower >= 20;  // CONSTANT: Minimum 20 power
+
             default:
+                // All other actions: no special requirements
                 return true;
         }
     }
 
-    // Get action effectiveness based on context
+    // ============================================================================
+    // GET ACTION EFFECTIVENESS - CONTEXTUAL BONUS CALCULATOR
+    // ============================================================================
+    // INPUT: actionType (string), neighborhoodId (string)
+    // OUTPUT: effectiveness multiplier (float, typically 1.0 - 1.5)
+    // CALLED BY: Not currently used in performAction, but available for future use
+    // PURPOSE: Calculate situational bonuses for actions
     function getActionEffectiveness(actionType, neighborhoodId) {
-        const gameState = window.GameCore.getState();
+        // Get game state
+        const gameState = window.GameCore.getState();  // INPUT: From game-core.js
+
+        // Find target neighborhood
         const neighborhood = gameState.neighborhoods.find(n => n.id === neighborhoodId);
 
-        if (!neighborhood) return 1.0;
+        if (!neighborhood) return 1.0;  // DEFAULT: No bonus
 
-        let effectiveness = 1.0;
+        let effectiveness = 1.0;  // BASE: 100% effectiveness
 
-        // High resistance neighborhoods are easier to organize in
+        // BONUS 1: High resistance neighborhoods (easier to organize)
+        // CONSTANT: +10% bonus if resistance > 40
         if (neighborhood.resistance > 40) {
             effectiveness *= 1.1;
         }
 
-        // Threatened neighborhoods get urgency bonus
+        // BONUS 2: Threatened neighborhoods (urgency bonus)
+        // CONSTANT: +20% bonus if threatened and timer < 30 minutes
         if (neighborhood.threatened && neighborhood.gentrificationTimer < 30) {
             effectiveness *= 1.2;
         }
 
-        // High heat makes actions riskier but more impactful
+        // BONUS 3: High heat (risky but impactful)
+        // CONSTANT: +15% bonus if heat > 70
         if (gameState.heatLevel > 70) {
             effectiveness *= 1.15;
         }
 
+        // OUTPUT: Total effectiveness multiplier
         return effectiveness;
     }
 
-    // Store original button texts
+    // ============================================================================
+    // BUTTON TEXT STORAGE
+    // ============================================================================
+    // PURPOSE: Store original button texts before cooldown countdowns overwrite them
+    // STRUCTURE: { actionType: originalText }
+    // READ BY: updateActionButtonStates() to restore text after cooldown
     const originalButtonTexts = {};
 
-    // Initialize original button texts
+    // ============================================================================
+    // INITIALIZE BUTTON TEXTS
+    // ============================================================================
+    // INPUT: None (reads DOM)
+    // OUTPUT: Populates originalButtonTexts object
+    // CALLED BY: init() with 100ms delay, updateActionButtonStates() as safety check
+    // PURPOSE: Capture original button labels before any modifications
     function initializeButtonTexts() {
         document.querySelectorAll('.action-btn').forEach(button => {
             const actionType = button.dataset.action;
             if (actionType) {
                 const actionNameEl = button.querySelector('.action-name');
                 if (actionNameEl && !originalButtonTexts[actionType]) {
+                    // STORE: Original text for this action type
                     originalButtonTexts[actionType] = actionNameEl.textContent;
                 }
             }
         });
     }
 
-    // Update action button states based on availability
+    // ============================================================================
+    // UPDATE ACTION BUTTON STATES - UI SYNC FUNCTION
+    // ============================================================================
+    // INPUT: None (reads gameState and cooldowns)
+    // OUTPUT: Updates all action button DOM elements
+    // CALLED BY: 
+    //   - setInterval every 1000ms (continuous updates for cooldown countdown)
+    //   - performAction() after action completes
+    //   - clearActionCooldown() setTimeout callback
+    // PURPOSE: Keep button UI in sync with game state
     function updateActionButtonStates() {
-        // Initialize texts if not done yet
+        // Safety: Initialize texts if not done yet
         if (Object.keys(originalButtonTexts).length === 0) {
             initializeButtonTexts();
         }
 
+        // Process each action button
         document.querySelectorAll('.action-btn').forEach(button => {
             const actionType = button.dataset.action;
             if (actionType) {
-                const gameState = window.GameCore.getState();
+                // Get current state
+                const gameState = window.GameCore.getState();  // INPUT: From game-core.js
+
+                // Check cooldown status
                 const cooldownKey = `${actionType}_${gameState.selectedNeighborhood}`;
                 const isOnCooldown = window.GameCore.isActionOnCooldown(cooldownKey);
                 const isGlobalCooldown = window.GameCore.isGlobalActionOnCooldown();
+
+                // Check overall availability
                 const canPerform = canPerformAction(actionType);
+
+                // Get DOM elements
                 const actionNameEl = button.querySelector('.action-name');
                 const actionStatsEl = button.querySelector('.action-stats');
 
+                // Set disabled state
                 button.disabled = !canPerform;
 
                 // Always reset to original text first
@@ -473,64 +926,140 @@ window.Actions = (function () {
                     actionNameEl.textContent = originalButtonTexts[actionType];
                 }
 
-                // Update action stats to show cost
+                // Update action stats to show cost and power range
                 if (actionStatsEl && window.Currency) {
                     const cost = window.Currency.getActionCost(actionType);
                     const action = actionDefinitions[actionType];
                     if (action) {
+                        // OUTPUT: Display cost and power range
                         actionStatsEl.textContent = `${cost.toLocaleString()} SimCoin, +${action.power[0]}-${action.power[1]} Power`;
                     }
                 }
 
+                // ============================================================
+                // DISPLAY STATE 1: GLOBAL COOLDOWN (HIGHEST PRIORITY)
+                // ============================================================
                 if (isGlobalCooldown) {
-                    // Global cooldown takes priority - affects all actions
+                    // Global cooldown affects all actions
                     button.classList.add('loading');
                     button.style.opacity = '0.3';
-                    button.style.background = '#e74c3c'; // Red for global cooldown
+                    button.style.background = '#e74c3c';  // CONSTANT: Red for global cooldown
+
+                    // Show countdown
                     const globalRemaining = window.GameCore.getGlobalActionCooldownRemaining();
                     if (globalRemaining > 0 && actionNameEl) {
                         const seconds = Math.ceil(globalRemaining / 1000);
+                        // OUTPUT: Override button text with countdown
                         actionNameEl.textContent = `⚠️ Heat Cooldown (${seconds}s)`;
                     }
-                } else if (isOnCooldown && gameState.selectedNeighborhood) {
+                }
+
+                // ============================================================
+                // DISPLAY STATE 2: PER-ACTION COOLDOWN
+                // ============================================================
+                else if (isOnCooldown && gameState.selectedNeighborhood) {
                     button.classList.add('loading');
                     button.style.opacity = '0.5';
-                    button.style.background = ''; // Reset background
-                    // Show cooldown timer on button
+                    button.style.background = '';  // Reset to default
+
+                    // Show cooldown timer
                     const remainingTime = window.GameCore.getActionCooldownRemaining(cooldownKey);
                     if (remainingTime > 0 && actionNameEl) {
                         const seconds = Math.ceil(remainingTime / 1000);
+                        // OUTPUT: Show original text with countdown
                         actionNameEl.textContent = `${originalButtonTexts[actionType]} (${seconds}s)`;
                     }
-                } else {
+                }
+
+                // ============================================================
+                // DISPLAY STATE 3: AVAILABLE OR UNAVAILABLE
+                // ============================================================
+                else {
                     button.classList.remove('loading');
-                    button.style.opacity = canPerform ? '1' : '0.6';
-                    button.style.background = ''; // Reset background
+                    button.style.opacity = canPerform ? '1' : '0.6';  // Dim if unavailable
+                    button.style.background = '';  // Reset to default
                 }
             }
         });
     }
 
-    // Start periodic update for cooldown timers
-    setInterval(updateActionButtonStates, 1000);
+    // ============================================================================
+    // START CONTINUOUS BUTTON STATE UPDATES
+    // ============================================================================
+    // TRIGGERS: updateActionButtonStates() every 1000ms
+    // PURPOSE: Keep cooldown countdown display updated in real-time
+    setInterval(updateActionButtonStates, 1000);  // CONSTANT: 1000ms interval
 
-    // Get action definition
+    // ============================================================================
+    // GET ACTION DEFINITION - PUBLIC ACCESSOR
+    // ============================================================================
+    // INPUT: actionType (string)
+    // OUTPUT: Action definition object or undefined
+    // CALLED BY: External modules that need action data
     function getActionDefinition(actionType) {
         return actionDefinitions[actionType];
     }
 
-    // Public API
+    // ============================================================================
+    // PUBLIC API - EXPORTED FUNCTIONS
+    // ============================================================================
     return {
+        // ====================================================================
+        // INITIALIZATION
+        // ====================================================================
+        // CALLED BY: optimicity.html (line 316)
         init: function () {
             console.log('Actions initialized');
-            // Initialize button texts when module loads
-            setTimeout(initializeButtonTexts, 100);
+            // Initialize button texts with small delay to ensure DOM ready
+            setTimeout(initializeButtonTexts, 100);  // CONSTANT: 100ms delay
         },
 
-        performAction: performAction,
-        canPerformAction: canPerformAction,
-        getActionEffectiveness: getActionEffectiveness,
-        updateActionButtonStates: updateActionButtonStates,
-        getActionDefinition: getActionDefinition
+        // ====================================================================
+        // CORE FUNCTIONS
+        // ====================================================================
+        performAction: performAction,                    // EXPOSED: For action button clicks
+        canPerformAction: canPerformAction,              // EXPOSED: For button state checks
+        getActionEffectiveness: getActionEffectiveness,  // EXPOSED: For future effectiveness bonuses
+        updateActionButtonStates: updateActionButtonStates,  // EXPOSED: For manual UI updates
+        getActionDefinition: getActionDefinition         // EXPOSED: For reading action data
     };
 })();
+
+// ============================================================================
+// DATA FLOW SUMMARY
+// ============================================================================
+//
+// PRIMARY INPUTS TO ACTIONS MODULE:
+// - User interaction: Button clicks → performAction()
+// - game-core.js: gameState via getState()
+// - currency.js: Cost checks via canAffordAction(), purchaseAction()
+// - neighborhoods.js: Selected neighborhood info
+//
+// PRIMARY OUTPUTS FROM ACTIONS MODULE:
+// - game-core.js: Updates via updateCommunityPower(), updateHeatLevel(), etc.
+// - neighborhoods.js: Resistance updates via updateNeighborhoodState()
+// - ui-components.js: Logs via addLogEntry(), updates via updateAll()
+// - ai-mayor.js: Response trigger via getResponse() after 1s delay
+// - ai-citizens.js: Response trigger via getResponse() after 2.5s (25% chance)
+//
+// TEMPORAL SEQUENCE:
+// 1. User clicks button → performAction() executes
+// 2. Validations (cooldowns, affordability, selection)
+// 3. Purchase action (deduct SimCoin)
+// 4. Calculate effects (power, heat, cooldown)
+// 5. Apply core effects (power, heat to game-core)
+// 6. Spam penalty check
+// 7. Casualty system (risk-based)
+// 8. Recruitment system (phase-based)
+// 9. Neighborhood resistance update
+// 10. UI logs and updates
+// 11. [+1s] AI Mayor response
+// 12. [+2.5s] Citizens response (25% chance)
+// 13. Victory conditions check
+//
+// COOLDOWN SYSTEM:
+// - Global cooldown: 3s between ANY actions (anti-spam)
+// - Per-action cooldown: Dynamic 0.5s-3min based on heat/power gains
+// - Button state updates: Every 1s via setInterval
+//
+// ============================================================================
