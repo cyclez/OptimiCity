@@ -40,18 +40,25 @@ window.Actions = (function () {
     // READ BY: performAction() for effect calculation, getActionDefinition() for external access
     // USED IN: calculateActionCooldown(), performAction(), updateActionButtonStates()
     const actionDefinitions = {
+
+        // ACTIONS ARRAY KEY:
+        actionType: ["Direct, Cultural Resistance, Infrastructure Hack, Organizing"],
+
         // DIRECT ACTION CATEGORY
         occupy: {
+            actionType: [1],
             power: [6, 10],                      // Community power gain range
             heat: [12, 18],                      // Heat gain range
             description: 'Organized building occupation'  // Used in AI prompts and logs
         },
         blockDemo: {
+            actionType: [1],
             power: [8, 12],
             heat: [15, 25],
             description: 'Blocked demolition crews'
         },
         protest: {
+            actionType: [1],
             power: [5, 8],
             heat: [10, 15],
             description: 'Led protest march'
@@ -59,16 +66,19 @@ window.Actions = (function () {
 
         // CULTURAL RESISTANCE CATEGORY
         streetArt: {
+            actionType: [2],
             power: [3, 6],
             heat: [4, 8],
             description: 'Created inspiring mural'
         },
         garden: {
+            actionType: [2],
             power: [4, 7],
             heat: [2, 5],
             description: 'Planted community garden'
         },
         festival: {
+            actionType: [2],
             power: [6, 9],
             heat: [6, 10],
             description: 'Organized block festival'
@@ -76,16 +86,19 @@ window.Actions = (function () {
 
         // INFRASTRUCTURE HACK CATEGORY
         hackCams: {
+            actionType: [3],
             power: [5, 8],
             heat: [8, 12],
             description: 'Disabled surveillance cameras'
         },
         meshNet: {
+            actionType: [3],
             power: [4, 6],
             heat: [5, 8],
             description: 'Installed mesh network nodes'
         },
         pirateBroad: {
+            actionType: [3],
             power: [7, 10],
             heat: [12, 16],
             description: 'Hijacked city communications'
@@ -93,16 +106,19 @@ window.Actions = (function () {
 
         // ORGANIZING CATEGORY
         meeting: {
+            actionType: [4],
             power: [3, 5],
             heat: [1, 3],
             description: 'Held secret organizing meeting'
         },
         recruit: {
+            actionType: [3],
             power: [5, 8],
             heat: [3, 6],
             description: 'Recruited new allies'
         },
         intel: {
+            actionType: [3],
             power: [2, 4],
             heat: [1, 2],
             description: 'Gathered intelligence on AI Mayor'
