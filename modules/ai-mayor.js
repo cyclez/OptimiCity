@@ -4,6 +4,29 @@
 window.AIMayor = (function () {
     'use strict';
 
+    // Action visibility classification
+    const stealthActions = ['meeting', 'intel', 'garden'];
+    const loudActions = ['blockDemo', 'occupy', 'pirateBroad'];
+
+    // Calculate probability AI Mayor notices action
+    function calculateNoticeProbability(heatLevel, actionType) {
+        let baseProbability;
+        
+        if (heatLevel < 20) baseProbability = 0.10;      // 10% - quasi invisibile
+        else if (heatLevel < 40) baseProbability = 0.30;  // 30% - crescita controllata
+        else if (heatLevel < 60) baseProbability = 0.60;  // 60% - attenzione media
+        else baseProbability = 0.90;                      // 90% - full surveillance
+        
+        // Apply action modifier
+        if (stealthActions.includes(actionType)) {
+            return baseProbability * 0.5;  // Harder to notice
+        } else if (loudActions.includes(actionType)) {
+            return baseProbability * 1.5;  // Easier to notice
+        }
+        
+        return baseProbability;
+    }
+
     // AI Mayor Response System
     async function getResponse(actionDescription, neighborhoodName) {
         try {
@@ -34,6 +57,20 @@ window.AIMayor = (function () {
 
         // Fallback to predefined responses
         return getFallbackResponse(actionDescription, neighborhoodName);
+    }
+
+    // Maybe respond to action (based on notice probability)
+    async function maybeRespondToAction(actionDescription, neighborhoodName, actionType) {
+        const gameState = window.GameCore.getState();
+        const noticeProbability = calculateNoticeProbability(gameState.heatLevel, actionType);
+        
+        if (Math.random() < noticeProbability) {
+            // AI Mayor notices and responds
+            return await getResponse(actionDescription, neighborhoodName);
+        }
+        
+        // Action went unnoticed
+        return null;
     }
 
     // Build contextual prompt for AI Mayor with gradual escalation
@@ -303,6 +340,7 @@ Respond briefly (max 40 words) with appropriate corporate tone for this threat l
         },
 
         getResponse: getResponse,
+        maybeRespondToAction: maybeRespondToAction,
         triggerRandomAction: triggerRandomAction,
         updateMetrics: updateMetrics
     };

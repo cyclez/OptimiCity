@@ -217,6 +217,29 @@ window.GameCore = (function () {
     }
 
     // ============================================================================
+    // HEAT DECAY - REDUCE HEAT WHEN PLAYER INACTIVE
+    // ============================================================================
+    // INPUT: gameState.lastActionTime, gameState.heatLevel, gameState.minHeatLevel
+    // OUTPUT: Reduces heatLevel by 1 every 30s if inactive, respecting minHeatLevel
+    // CALLED BY: gameLoop (every 5s)
+    function applyHeatDecay() {
+        const timeSinceLastAction = Date.now() - gameState.lastActionTime;
+
+        // If player hasn't acted in 30+ seconds, heat decays
+        if (timeSinceLastAction >= 30000 && gameState.heatLevel > gameState.minHeatLevel) {
+            gameState.heatLevel = Math.max(
+                gameState.minHeatLevel,
+                gameState.heatLevel - 1
+            );
+
+            // Log decay occasionally (20% chance)
+            if (Math.random() < 0.2 && window.UIComponents) {
+                window.UIComponents.addLogEntry('📽 Heat level decreasing...', 'system');
+            }
+        }
+    }
+
+    // ============================================================================
     // END GAME - FINAL STATE
     // ============================================================================
     // INPUT: result ('victory', 'defeat', or 'timeout'), optional message
@@ -443,6 +466,17 @@ window.GameCore = (function () {
             // OUTPUT: May modify communityPower (+1 if triggered)
             if (window.AICitizens) {
                 AICitizens.triggerCommunityAction();
+            }
+
+            // ====================================================================
+            // HEAT DECAY
+            // ====================================================================
+            // Apply heat decay if player inactive
+            applyHeatDecay();
+
+            // Update UI after decay
+            if (window.UIComponents) {
+                UIComponents.updateAll();
             }
 
         }, 5000); // Update every 5 seconds (5000ms)

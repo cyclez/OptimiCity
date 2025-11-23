@@ -729,21 +729,33 @@ window.Actions = (function () {
         // ====================================================================
         // STEP 19: TRIGGER AI MAYOR RESPONSE (DELAYED)
         // ====================================================================
-        // Always trigger AI Mayor response after 1 second delay
+        // AI Mayor maybe notices action (based on heat level and action type)
         // PURPOSE: Give time for UI updates before AI response
         setTimeout(async () => {
             if (window.AIMayor) {
-                // CALLS: ai-mayor.js getResponse()
-                // INPUT: action.description, neighborhood.name
-                // OUTPUT: AI Mayor text response (via LLM or fallback)
-                const aiResponse = await window.AIMayor.getResponse(action.description, neighborhood.name);
+                // CALLS: ai-mayor.js maybeRespondToAction()
+                // INPUT: action.description, neighborhood.name, actionType
+                // OUTPUT: AI Mayor text response (via LLM or fallback) OR null if unnoticed
+                const aiResponse = await window.AIMayor.maybeRespondToAction(
+                    action.description, 
+                    neighborhood.name,
+                    actionType
+                );
 
-                if (window.UIComponents) {
-                    // OUTPUT: Log AI Mayor response
-                    window.UIComponents.addLogEntry(aiResponse, 'ai');
+                if (aiResponse) {
+                    // AI Mayor noticed the action
+                    if (window.UIComponents) {
+                        // OUTPUT: Log AI Mayor response
+                        window.UIComponents.addLogEntry(aiResponse, 'ai');
 
-                    // OUTPUT: Update AI interface metrics
-                    window.UIComponents.updateAIInterface(aiResponse);
+                        // OUTPUT: Update AI interface metrics
+                        window.UIComponents.updateAIInterface(aiResponse);
+                    }
+                } else {
+                    // Action went unnoticed - log occasionally
+                    if (Math.random() < 0.3 && window.UIComponents) {
+                        window.UIComponents.addLogEntry('✓ Action completed quietly...', 'system');
+                    }
                 }
             }
         }, 1000);  // CONSTANT: 1000ms delay
