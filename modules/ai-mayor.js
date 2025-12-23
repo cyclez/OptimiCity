@@ -11,20 +11,27 @@ window.AIMayor = (function () {
     // Calculate probability AI Mayor notices action
     function calculateNoticeProbability(heatLevel, actionType) {
         let baseProbability;
-        
-        if (heatLevel < 20) baseProbability = 0.10;      // 10% - quasi invisibile
-        else if (heatLevel < 40) baseProbability = 0.30;  // 30% - crescita controllata
-        else if (heatLevel < 60) baseProbability = 0.60;  // 60% - attenzione media
-        else baseProbability = 0.90;                      // 90% - full surveillance
-        
+
+        if (heatLevel < 20) baseProbability = 0.10;      // 10%
+        else if (heatLevel < 40) baseProbability = 0.30;  // 30%
+        else if (heatLevel < 60) baseProbability = 0.60;  // 60%
+        else baseProbability = 0.90;                      // 90%
+
         // Apply action modifier
+        let finalProbability;
         if (stealthActions.includes(actionType)) {
-            return baseProbability * 0.5;  // Harder to notice
+            finalProbability = baseProbability * 0.7;  // Harder to notice
+            // Cap stealth at 50% to allow recovery at high heat
+            finalProbability = Math.min(0.50, finalProbability);
         } else if (loudActions.includes(actionType)) {
-            return baseProbability * 1.5;  // Easier to notice
+            finalProbability = baseProbability * 1.5;  // Easier to notice
+            // Cap at 100%
+            finalProbability = Math.min(1.0, finalProbability);
+        } else {
+            finalProbability = baseProbability;
         }
-        
-        return baseProbability;
+
+        return finalProbability;
     }
 
     // AI Mayor Response System
@@ -63,12 +70,12 @@ window.AIMayor = (function () {
     async function maybeRespondToAction(actionDescription, neighborhoodName, actionType) {
         const gameState = window.GameCore.getState();
         const noticeProbability = calculateNoticeProbability(gameState.heatLevel, actionType);
-        
+
         if (Math.random() < noticeProbability) {
             // AI Mayor notices and responds
             return await getResponse(actionDescription, neighborhoodName);
         }
-        
+
         // Action went unnoticed
         return null;
     }
@@ -181,36 +188,100 @@ Respond briefly (max 40 words) with appropriate corporate tone for this threat l
     }
 
     // AI Mayor autonomous actions (called from game loop)
-    function triggerRandomAction() {
-        if (Math.random() < getAggressionLevel()) {
-            const gameState = window.GameCore.getState();
+    // Autonomous commentary system - AI Mayor observes city state periodically
+    let autonomousTimer = null;
 
-            if (gameState.heatLevel > 50) {
-                triggerEscalation();
-            } else {
-                triggerRoutineAction();
+    async function triggerAutonomousCommentary() {
+        const gameState = window.GameCore.getState();
+
+        // Build contextual prompt about current city state
+        const liberatedCount = gameState.neighborhoods.filter(n => n.resistance >= 60).length;
+        const threatenedCount = gameState.neighborhoods.filter(n => n.threatened).length;
+        const populationPercentage = ((gameState.activeCitizens / gameState.totalPopulation) * 100).toFixed(2);
+
+        let situationContext = '';
+        if (gameState.heatLevel < 30) {
+            situationContext = 'City systems operating normally. Minor fluctuations within acceptable parameters.';
+        } else if (gameState.heatLevel < 60) {
+            situationContext = 'Detecting increased community organization. Monitoring protocols active.';
+        } else {
+            situationContext = 'Significant resistance detected. Emergency response systems engaged.';
+        }
+
+        const prompt = `You are an AI Mayor optimizing city efficiency through algorithms.
+
+CURRENT CITY STATUS:
+System Alert Level: ${gameState.heatLevel}%
+Community Organization: ${populationPercentage}% of population active
+Liberated Districts: ${liberatedCount}/4
+Threatened Districts: ${threatenedCount}
+Situation: ${situationContext}
+
+Provide a brief, cold observation about the city's current state from your algorithmic perspective. Be corporate, technocratic, detached. No preamble. Max 30 words.`;
+
+        try {
+            const response = await fetch('http://localhost:11434/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: 'llama3.2',
+                    prompt: prompt,
+                    stream: false,
+                    options: {
+                        temperature: 0.3,
+                        num_predict: 1000,
+                        top_p: 0.9
+                    }
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const cleanedResponse = cleanResponse(data.response);
+
+                if (window.UIComponents) {
+                    window.UIComponents.addLogEntry(cleanedResponse, 'ai');
+                }
             }
+        } catch (error) {
+            console.warn('Autonomous commentary failed:', error);
+            // Silent fail - no fallback, just skip this commentary
+        }
+
+        // Schedule next commentary (random 30-100 seconds)
+        scheduleNextCommentary();
+    }
+
+    function scheduleNextCommentary() {
+        // Clear existing timer if any
+        if (autonomousTimer) {
+            clearTimeout(autonomousTimer);
+        }
+
+        // Random interval between 30-100 seconds
+        const interval = Math.floor(Math.random() * 70000) + 30000; // 30000-100000ms
+
+        autonomousTimer = setTimeout(() => {
+            triggerAutonomousCommentary();
+        }, interval);
+    }
+
+    function startAutonomousCommentary() {
+        console.log('AI Mayor autonomous commentary started (30-100s intervals)');
+        scheduleNextCommentary();
+    }
+
+    function stopAutonomousCommentary() {
+        if (autonomousTimer) {
+            clearTimeout(autonomousTimer);
+            autonomousTimer = null;
         }
     }
 
-    // Calculate AI Mayor aggression based on game state
-    function getAggressionLevel() {
-        const gameState = window.GameCore.getState();
-        let baseAggression = 0.3; // 30% base chance
-
-        // Increase aggression with community power
-        baseAggression += gameState.communityPower * 0.005; // +0.5% per power point
-
-        // Increase aggression with liberated neighborhoods
-        const liberatedCount = gameState.neighborhoods.filter(n => n.resistance >= 60).length;
-        baseAggression += liberatedCount * 0.1; // +10% per liberated neighborhood
-
-        // High heat = much more aggressive
-        if (gameState.heatLevel > 50) {
-            baseAggression += (gameState.heatLevel - 50) * 0.01; // +1% per heat point over 50
-        }
-
-        return Math.min(0.8, baseAggression); // Cap at 80%
+    // Legacy function - kept for compatibility but does nothing now
+    function triggerRandomAction() {
+        // Disabled - autonomous commentary now handled by timer system
+        // This function kept only for backwards compatibility
     }
 
     // AI escalation responses
@@ -271,11 +342,36 @@ Respond briefly (max 40 words) with appropriate corporate tone for this threat l
     function triggerRoutineAction() {
         const gameState = window.GameCore.getState();
         const routineActions = [
-            "Efficiency optimization protocols updated across city systems.",
-            "Property value algorithms recalibrated for maximum ROI.",
-            "Citizen movement patterns analyzed for behavioral optimization.",
-            "Resource allocation algorithms fine-tuned for peak efficiency.",
-            "Automated zoning adjustments implemented per optimization models."
+            "Traffic flow algorithms updated for 0.3% efficiency gains.",
+            "Municipal budget reallocation optimized via predictive models.",
+            "Surveillance network expansion proposal submitted for approval.",
+            "Public sentiment analysis complete: compliance at acceptable levels.",
+            "Infrastructure maintenance scheduled per cost-benefit matrices.",
+            "Tax assessment algorithms recalibrated for revenue optimization.",
+            "Emergency response routes recalculated for peak efficiency.",
+            "Public services audit initiated: identifying cost reduction targets.",
+            "Zoning variance applications processed through automated review.",
+            "Waste management logistics optimized via machine learning.",
+            "Street lighting patterns adjusted to reduce energy consumption.",
+            "Building permit review algorithms updated with new parameters.",
+            "Public transportation schedules refined for maximum throughput.",
+            "Water distribution network analyzed for efficiency improvements.",
+            "Parking enforcement protocols synchronized across districts.",
+            "Property tax valuations updated via automated assessment tools.",
+            "Code compliance monitoring expanded to additional sectors.",
+            "City contract bidding system optimized for cost reduction.",
+            "Public space utilization metrics analyzed and logged.",
+            "Environmental sensors calibrated for regulatory compliance.",
+            "Digital infrastructure maintenance cycle initiated.",
+            "Citizen complaint processing queue optimized.",
+            "Urban planning simulations running overnight.",
+            "Public health data aggregation and analysis in progress.",
+            "Economic development zones evaluated for performance.",
+            "Social services resource allocation under review.",
+            "Municipal communications network upgraded.",
+            "Administrative efficiency benchmarks recalculated.",
+            "City asset management database synchronized.",
+            "Regulatory compliance checks automated across departments."
         ];
 
         const action = routineActions[Math.floor(Math.random() * routineActions.length)];
@@ -341,7 +437,9 @@ Respond briefly (max 40 words) with appropriate corporate tone for this threat l
 
         getResponse: getResponse,
         maybeRespondToAction: maybeRespondToAction,
-        triggerRandomAction: triggerRandomAction,
-        updateMetrics: updateMetrics
+        triggerRandomAction: triggerRandomAction, // Legacy - does nothing now
+        updateMetrics: updateMetrics,
+        startAutonomousCommentary: startAutonomousCommentary,
+        stopAutonomousCommentary: stopAutonomousCommentary
     };
 })();

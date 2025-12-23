@@ -27,7 +27,6 @@ window.Neighborhoods = (function () {
                 <div class="neighborhood-name">${neighborhood.name}</div>
                 <div class="resistance-info">
                     <span>Resistance: ${neighborhood.resistance}%</span>
-                    <span>👥 ${neighborhood.population}</span>
                 </div>
                 ${neighborhood.threatened ? `<div class="threat-timer">⚠️ ${neighborhood.gentrificationTimer.toFixed(1)} min until gentrification</div>` : ''}
             `;
@@ -122,7 +121,6 @@ window.Neighborhoods = (function () {
             <div class="neighborhood-name">${neighborhood.name}</div>
             <div class="resistance-info">
                 <span>Resistance: ${neighborhood.resistance}%</span>
-                <span>👥 ${neighborhood.population}</span>
             </div>
             ${neighborhood.threatened ? `<div class="threat-timer">⚠️ ${neighborhood.gentrificationTimer}m until gentrification</div>` : ''}
         `;

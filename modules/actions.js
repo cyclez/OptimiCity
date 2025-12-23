@@ -159,8 +159,8 @@ window.Actions = (function () {
     // OUTPUT: Risk level string ('low', 'medium', 'high', 'extreme')
     // CALLED BY: performAction() to determine casualty probability
     // USED BY: calculateCasualties(), getRiskProbability()
-    function calculateActionRisk(gameState) {
-        const heatLevel = gameState.heatLevel;   // INPUT: From game-core.js
+    function calculateActionRisk(gameState, projectedHeat = null) {
+        const heatLevel = projectedHeat !== null ? projectedHeat : gameState.heatLevel;   // INPUT: From game-core.js or projected
 
         // Risk thresholds based on heat
         if (heatLevel < 25) return 'low';        // CONSTANT: 0-24 heat
@@ -425,9 +425,12 @@ window.Actions = (function () {
         // STEP 10: CALCULATE RISK LEVEL
         // ====================================================================
         // CALLS: calculateActionRisk()
-        // INPUT: gameState (uses heatLevel)
+        // INPUT: gameState (uses heatLevel + projected heatGain)
         // OUTPUT: 'low', 'medium', 'high', or 'extreme'
-        const riskLevel = calculateActionRisk(gameState);
+        // NOTE: Risk calculated with projected heat (current + gain) because
+        //       casualties reflect the danger level the action creates
+        const projectedHeat = Math.min(100, gameState.heatLevel + heatGain);
+        const riskLevel = calculateActionRisk(gameState, projectedHeat);
 
         // ====================================================================
         // STEP 11: SET ACTION COOLDOWN
@@ -453,19 +456,11 @@ window.Actions = (function () {
         // OUTPUT: Modifies gameState.communityPower (+powerGain)
         window.GameCore.updateCommunityPower(powerGain);
 
-        // Update heat level
-        // CALLS: game-core.js updateHeatLevel()
-        // OUTPUT: Modifies gameState.heatLevel (+heatGain)
-        // SIDE EFFECT: May trigger heat threshold checks
-        window.GameCore.updateHeatLevel(heatGain);
+        // NOTE: Heat update moved to STEP 19 - only applied if AI Mayor notices action
+        // This enables true stealth gameplay at low heat levels
 
-        // ====================================================================
-        // STEP 13: CHECK SPAM PENALTY
-        // ====================================================================
-        // PURPOSE: Penalize rapid-fire actions with extra heat
-        // CALLS: game-core.js checkSpamPenalty()
-        // OUTPUT: May add +2 to +8 heat depending on timing
-        window.GameCore.checkSpamPenalty();
+        // NOTE: Spam penalty removed - global cooldown (3s) + action-specific cooldowns
+        //       provide sufficient spam prevention. Heat now only increases if action noticed.
 
         // Set global cooldown timestamp
         // CALLS: game-core.js setGlobalActionCooldown()
@@ -545,87 +540,69 @@ window.Actions = (function () {
             const totalPopulation = gameState.totalPopulation;      // INPUT: From game-core.js
 
             // ================================================================
-            // PHASE THRESHOLDS
+            // HONG KONG-STYLE EXPONENTIAL GROWTH MODEL
             // ================================================================
-            // Calculate population-based thresholds for phase transitions
-            // FORMULA: floor(totalPopulation × percentage)
-            const phase1Threshold = Math.floor(totalPopulation * 0.0001);  // CONSTANT: 0.01% of population
-            const phase2Threshold = Math.floor(totalPopulation * 0.001);   // CONSTANT: 0.1% of population
+            // Based on real-world protest diffusion: 0.5% → 25% in 2 months (HK 2019)
+            // FORMULA: Combines network effects, critical mass, safety, and morale
 
-            let citizenGain = 0;
-            let phaseName = '';
+            const currentPercentage = currentCitizens / totalPopulation;
+            const maxRealistic = 0.25;  // 25% of population (massive movement)
 
-            // ================================================================
-            // PHASE 1: INDIVIDUAL NETWORK (<0.01% of population)
-            // ================================================================
-            // CHARACTERISTICS: Fixed small numbers, building initial core
-            if (currentCitizens < phase1Threshold) {
-                phaseName = 'Individual Network';
+            // Base recruitment (randomized)
+            const baseRecruit = Math.floor(Math.random() * 101) + 100;  // 100-200
 
-                if (mobilizingActions.includes(actionType)) {
-                    // CONSTANT: Protests inspire more people (15-35)
-                    citizenGain = Math.floor(Math.random() * 21) + 15;
-                } else if (organizingActions.includes(actionType)) {
-                    // CONSTANT: Direct organizing (10-25)
-                    citizenGain = Math.floor(Math.random() * 16) + 10;
-                } else {
-                    // CONSTANT: Cultural actions (5-17)
-                    citizenGain = Math.floor(Math.random() * 13) + 5;
-                }
+            // Network effect: More people = exponential word-of-mouth spread
+            const networkEffect = Math.pow(currentCitizens, 0.85);
 
-                // ================================================================
-                // PHASE 2: LOCAL MOVEMENT (0.01% - 0.1% of population)
-                // ================================================================
-                // CHARACTERISTICS: Small percentage-based growth, local networks
-            } else if (currentCitizens < phase2Threshold) {
-                phaseName = 'Local Movement';
+            // Saturation: Growth slows as approaching maximum capacity
+            const saturation = 1 - (currentPercentage / maxRealistic);
 
-                // Calculate available population (not yet active)
-                const availablePopulation = totalPopulation - currentCitizens;
+            // Critical mass bonus: 5x boost after crossing 0.1% threshold
+            const criticalMassBonus = currentPercentage > 0.001 ? 5 : 1;
 
-                if (mobilizingActions.includes(actionType)) {
-                    // FORMULA: 0.01% to 0.05% of available (min 50, max 1000)
-                    const minRate = Math.floor(availablePopulation * 0.0001);
-                    const maxRate = Math.floor(availablePopulation * 0.0005);
-                    citizenGain = Math.max(50, Math.min(1000, minRate + Math.floor(Math.random() * (maxRate - minRate + 1))));
-                } else if (organizingActions.includes(actionType)) {
-                    // FORMULA: 0.005% to 0.02% of available (min 10, max 500)
-                    const minRate = Math.floor(availablePopulation * 0.00005);
-                    const maxRate = Math.floor(availablePopulation * 0.0002);
-                    citizenGain = Math.max(10, Math.min(500, minRate + Math.floor(Math.random() * (maxRate - minRate + 1))));
-                } else {
-                    // FORMULA: 0.002% to 0.01% of available (min 5, max 200)
-                    const minRate = Math.floor(availablePopulation * 0.00002);
-                    const maxRate = Math.floor(availablePopulation * 0.0001);
-                    citizenGain = Math.max(5, Math.min(200, minRate + Math.floor(Math.random() * (maxRate - minRate + 1))));
-                }
+            // Safety bonus: Repression reduces recruitment
+            // Heat <40 = safe (1.5x), 40-70 = medium (1x), >70 = dangerous (0.5x)
+            const heatLevel = gameState.heatLevel;
+            const safetyBonus = heatLevel < 40 ? 1.5 : (heatLevel < 70 ? 1 : 0.5);
 
-                // ================================================================
-                // PHASE 3: CITY-WIDE RESISTANCE (>0.1% of population)
-                // ================================================================
-                // CHARACTERISTICS: Full percentage system, mass movement
+            // Morale multiplier: Higher community power = more attractive movement
+            const communityPower = gameState.communityPower;
+            const moraleMultiplier = 1 + (communityPower / 50);
+
+            // Action type multipliers (different tactics have different recruitment power)
+            let actionMultiplier = 1;
+            if (mobilizingActions.includes(actionType)) {
+                actionMultiplier = 1.5;  // Protests/demonstrations most visible
+            } else if (organizingActions.includes(actionType)) {
+                actionMultiplier = 1.2;  // Direct organizing slightly better
             } else {
-                phaseName = 'City-Wide Resistance';
+                actionMultiplier = 0.8;  // Cultural actions slower but safer
+            }
 
-                // Calculate available population
-                const availablePopulation = totalPopulation - currentCitizens;
+            // Final calculation
+            let citizenGain = Math.floor(
+                baseRecruit +
+                (networkEffect * saturation * criticalMassBonus * safetyBonus * moraleMultiplier * actionMultiplier)
+            );
 
-                if (mobilizingActions.includes(actionType)) {
-                    // FORMULA: 0.2% to 1.0% of available (min 500)
-                    const minRate = Math.floor(availablePopulation * 0.002);
-                    const maxRate = Math.floor(availablePopulation * 0.01);
-                    citizenGain = Math.max(500, Math.min(maxRate, minRate + Math.floor(Math.random() * (maxRate - minRate + 1))));
-                } else if (organizingActions.includes(actionType)) {
-                    // FORMULA: 0.1% to 0.5% of available (min 100)
-                    const minRate = Math.floor(availablePopulation * 0.001);
-                    const maxRate = Math.floor(availablePopulation * 0.005);
-                    citizenGain = Math.max(100, Math.min(maxRate, minRate + Math.floor(Math.random() * (maxRate - minRate + 1))));
-                } else {
-                    // FORMULA: 0.05% to 0.2% of available (min 50)
-                    const minRate = Math.floor(availablePopulation * 0.0005);
-                    const maxRate = Math.floor(availablePopulation * 0.002);
-                    citizenGain = Math.max(50, Math.min(maxRate, minRate + Math.floor(Math.random() * (maxRate - minRate + 1))));
-                }
+            // Minimum gain (always recruit at least some people)
+            citizenGain = Math.max(50, citizenGain);
+
+            // Maximum gain (cap to prevent overflow, max 5% of remaining population per action)
+            const remainingPopulation = totalPopulation - currentCitizens;
+            const maxGainPerAction = Math.floor(remainingPopulation * 0.05);
+            citizenGain = Math.min(citizenGain, maxGainPerAction);
+
+            // Phase name for logging (based on percentage)
+            let phaseName = '';
+            if (currentPercentage < 0.0001) {
+                phaseName = 'Early Adopters';
+            } else if (currentPercentage < 0.01) {
+                phaseName = 'Critical Mass';
+            } else if (currentPercentage < 0.05) {
+                phaseName = 'Mainstream Movement';
+            } else {
+                phaseName = 'Mass Mobilization';
             }
 
             // ================================================================
@@ -653,15 +630,6 @@ window.Actions = (function () {
                     } else {
                         // OUTPUT: Cultural inspiration message
                         window.UIComponents.addLogEntry(`🎭 ${phaseName}: Inspired ${citizenGain.toLocaleString()} citizens to join (${populationPercentage}% of city)`, 'player');
-                    }
-
-                    // Check for phase transitions
-                    // OUTPUT: Notification when crossing phase thresholds
-                    if (currentCitizens < phase1Threshold && newTotal >= phase1Threshold) {
-                        window.UIComponents.addLogEntry(`🎉 PHASE 2 UNLOCKED: Local Movement - Better recruitment rates available!`, 'system');
-                    }
-                    if (currentCitizens < phase2Threshold && newTotal >= phase2Threshold) {
-                        window.UIComponents.addLogEntry(`🎉 PHASE 3 UNLOCKED: City-Wide Resistance - Mass recruitment available!`, 'system');
                     }
                 }
             }
@@ -737,14 +705,22 @@ window.Actions = (function () {
                 // INPUT: action.description, neighborhood.name, actionType
                 // OUTPUT: AI Mayor text response (via LLM or fallback) OR null if unnoticed
                 const aiResponse = await window.AIMayor.maybeRespondToAction(
-                    action.description, 
+                    action.description,
                     neighborhood.name,
                     actionType
                 );
 
                 if (aiResponse) {
-                    // AI Mayor noticed the action
+                    // AI Mayor noticed the action - apply heat now
+                    // CALLS: game-core.js updateHeatLevel()
+                    // OUTPUT: Modifies gameState.heatLevel (+heatGain)
+                    // CRITICAL: Heat only increases if action was noticed
+                    window.GameCore.updateHeatLevel(heatGain);
+
                     if (window.UIComponents) {
+                        // OUTPUT: Explicit notice warning
+                        window.UIComponents.addLogEntry(`⚠️ AI Mayor detected action (+${heatGain} heat)`, 'system');
+
                         // OUTPUT: Log AI Mayor response
                         window.UIComponents.addLogEntry(aiResponse, 'ai');
 
@@ -752,9 +728,9 @@ window.Actions = (function () {
                         window.UIComponents.updateAIInterface(aiResponse);
                     }
                 } else {
-                    // Action went unnoticed - log occasionally
-                    if (Math.random() < 0.3 && window.UIComponents) {
-                        window.UIComponents.addLogEntry('✓ Action completed quietly...', 'system');
+                    // Action went unnoticed - no heat increase (true stealth)
+                    if (window.UIComponents) {
+                        window.UIComponents.addLogEntry('🤫 Action went unnoticed by AI Mayor', 'system');
                     }
                 }
             }

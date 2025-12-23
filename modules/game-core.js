@@ -82,10 +82,35 @@ window.GameCore = (function () {
         // Neighborhoods data
         neighborhoods: [                         // MODIFIED BY: actions.js (resistance changes), game loop (timer countdown), ai-mayor.js (acceleration)
             // READ BY: neighborhoods.js (rendering), checkVictoryConditions(), ai-mayor.js, ai-citizens.js
-            { id: 'market', name: 'Market District', resistance: 5, gentrificationTimer: 10, threatened: true, population: 1200 },
-            { id: 'riverside', name: 'Riverside', resistance: 12, gentrificationTimer: 18, threatened: true, population: 850 },
-            { id: 'oldtown', name: 'Old Town', resistance: 25, gentrificationTimer: 25, threatened: false, population: 950 },
-            { id: 'industrial', name: 'Industrial Quarter', resistance: 8, gentrificationTimer: 8, threatened: true, population: 600 }
+            // All neighborhoods start threatened with randomized values
+            {
+                id: 'market',
+                name: 'Market District',
+                resistance: Math.floor(Math.random() * 11) + 5,  // 5-15 random
+                gentrificationTimer: Math.floor(Math.random() * 6) + 8,  // 8-13 minutes random
+                threatened: true
+            },
+            {
+                id: 'riverside',
+                name: 'Riverside',
+                resistance: Math.floor(Math.random() * 11) + 5,  // 5-15 random
+                gentrificationTimer: Math.floor(Math.random() * 6) + 8,  // 8-13 minutes random
+                threatened: true
+            },
+            {
+                id: 'oldtown',
+                name: 'Old Town',
+                resistance: Math.floor(Math.random() * 11) + 5,  // 5-15 random
+                gentrificationTimer: Math.floor(Math.random() * 6) + 8,  // 8-13 minutes random
+                threatened: true
+            },
+            {
+                id: 'industrial',
+                name: 'Industrial Quarter',
+                resistance: Math.floor(Math.random() * 11) + 5,  // 5-15 random
+                gentrificationTimer: Math.floor(Math.random() * 6) + 8,  // 8-13 minutes random
+                threatened: true
+            }
         ]
     };
 
@@ -198,6 +223,9 @@ window.GameCore = (function () {
         // CHECKS: resistance >= VICTORY_CONDITIONS.ALL_NEIGHBORHOODS_LIBERATED (60)
         const liberatedCount = gameState.neighborhoods.filter(n => n.resistance >= VICTORY_CONDITIONS.ALL_NEIGHBORHOODS_LIBERATED).length;
 
+        // Count gentrified neighborhoods (lost to AI Mayor)
+        const gentrifiedCount = gameState.neighborhoods.filter(n => n.resistance === 0 && !n.threatened).length;
+
         // Victory condition 1: High community power
         // INPUT: gameState.communityPower
         if (gameState.communityPower >= VICTORY_CONDITIONS.COMMUNITY_POWER_WIN) {  // >= 80
@@ -209,10 +237,15 @@ window.GameCore = (function () {
             endGame('victory', 'All neighborhoods liberated! The AI Mayor has been overthrown.');
         }
 
-        // Defeat condition: Surveillance state
+        // Defeat condition 1: Surveillance state
         // INPUT: gameState.heatLevel
         else if (gameState.heatLevel >= VICTORY_CONDITIONS.SURVEILLANCE_STATE_THRESHOLD) {  // >= 95
             endGame('defeat', 'Surveillance state fully implemented. The resistance has been crushed.');
+        }
+
+        // Defeat condition 2: All neighborhoods gentrified
+        else if (gentrifiedCount === gameState.neighborhoods.length) {
+            endGame('defeat', 'All neighborhoods have been gentrified. The community has been erased.');
         }
     }
 
@@ -257,6 +290,11 @@ window.GameCore = (function () {
         if (gameLoopId) {
             clearInterval(gameLoopId);            // Stops main game loop
             gameLoopId = null;
+        }
+
+        // Stop AI Mayor autonomous commentary
+        if (window.AIMayor) {
+            AIMayor.stopAutonomousCommentary();
         }
 
         // Get DOM elements for modal
@@ -380,6 +418,11 @@ window.GameCore = (function () {
         // OUTPUT: Creates interval that calls updateTimer() every 1000ms
         timerId = setInterval(updateTimer, 1000);
 
+        // Start AI Mayor autonomous commentary (30-100s random intervals)
+        if (window.AIMayor) {
+            AIMayor.startAutonomousCommentary();
+        }
+
         // ========================================================================
         // MAIN GAME LOOP - RUNS EVERY 5 SECONDS
         // ========================================================================
@@ -449,14 +492,11 @@ window.GameCore = (function () {
             });
 
             // ====================================================================
-            // AI MAYOR AUTONOMOUS ACTIONS
+            // AI MAYOR AUTONOMOUS ACTIONS - DISABLED
             // ====================================================================
-            // TRIGGERS: ai-mayor.js triggerRandomAction()
-            // INPUT: gameState (communityPower, heatLevel, neighborhoods)
-            // OUTPUT: May modify heatLevel, citizensImprisoned, citizensKilled, activeCitizens, gentrificationTimer
-            if (window.AIMayor) {
-                AIMayor.triggerRandomAction();
-            }
+            // Now handled by autonomous timer system (30-100s intervals)
+            // See ai-mayor.js startAutonomousCommentary()
+            // Removed from game loop to prevent log spam
 
             // ====================================================================
             // COMMUNITY AUTONOMOUS ACTIONS
