@@ -345,7 +345,9 @@ window.GameCore = (function () {
         gameState.startTime = null;
         gameState.communityPower = 0;
         gameState.heatLevel = 0;
-        gameState.activeCitizens = Math.floor(Math.random() * (300 - 100 + 1)) + 100;  // Re-randomize 100-300
+        gameState.minHeatLevel = 0;
+        gameState.lastActionTime = 0;
+        gameState.activeCitizens = 1;                     // Match initial start state
         gameState.totalPopulation = Math.floor(Math.random() * (20000000 - 5000000 + 1)) + 5000000;  // Re-randomize 5M-20M
         gameState.citizensImprisoned = 0;
         gameState.citizensKilled = 0;
@@ -361,23 +363,9 @@ window.GameCore = (function () {
         // Reset neighborhoods to initial values
         // OUTPUT: Resets resistance, gentrificationTimer, threatened for each neighborhood
         gameState.neighborhoods.forEach(n => {
-            if (n.id === 'market') {
-                n.resistance = 5;
-                n.gentrificationTimer = 10;
-                n.threatened = true;
-            } else if (n.id === 'riverside') {
-                n.resistance = 12;
-                n.gentrificationTimer = 18;
-                n.threatened = true;
-            } else if (n.id === 'oldtown') {
-                n.resistance = 25;
-                n.gentrificationTimer = 25;
-                n.threatened = false;
-            } else if (n.id === 'industrial') {
-                n.resistance = 8;
-                n.gentrificationTimer = 8;
-                n.threatened = true;
-            }
+            n.resistance = Math.floor(Math.random() * 11) + 5;  // 5-15 random
+            n.gentrificationTimer = Math.floor(Math.random() * 6) + 8;  // 8-13 minutes random
+            n.threatened = true;
         });
 
         // Clear game log
@@ -468,8 +456,8 @@ window.GameCore = (function () {
                                 UIComponents.addLogEntry(`✊ ${neighborhood.name} successfully defended against gentrification!`, 'citizen');
                             }
                             neighborhood.threatened = false;         // OUTPUT: Saved
-                            neighborhood.resistance += 10;           // OUTPUT: Resistance boost
-                            gameState.communityPower += 10;         // OUTPUT: Community power boost
+                            neighborhood.resistance = Math.min(100, neighborhood.resistance + 10);  // OUTPUT: Resistance boost (clamped)
+                            gameState.communityPower = Math.min(100, gameState.communityPower + 10); // OUTPUT: Community power boost (clamped)
                         }
 
                         // Re-render neighborhoods after resolution

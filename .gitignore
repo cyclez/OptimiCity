@@ -2,3 +2,13 @@
 versions/
 .DS_Store
 /tools/
+/docs-v2/
+
+# codex
+.codex/
+
+# backups
+*.bak.*
+NEWS_FEED_LLM_REPORT.md
+AGENTS.md
+NEWS_FEED_LLM_REPORT.b0.2.md

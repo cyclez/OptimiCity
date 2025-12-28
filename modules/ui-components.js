@@ -15,7 +15,7 @@ window.UIComponents = (function () {
         logEntries.appendChild(entry);
         logEntries.scrollTop = logEntries.scrollHeight;
 
-        // Keep only last 20 entries
+        // Keep only last 40 entries
         while (logEntries.children.length > 40) {
             logEntries.removeChild(logEntries.firstChild);
         }
@@ -202,7 +202,7 @@ window.UIComponents = (function () {
 
         // Show neighborhood info
         const threatStatus = neighborhood.threatened ?
-            `⚠️ Under threat - ${neighborhood.gentrificationTimer}h remaining` :
+            `⚠️ Under threat - ${neighborhood.gentrificationTimer.toFixed(1)} min remaining` :
             '🏴 Secure';
 
         addLogEntry(`Selected ${neighborhood.name}. ${threatStatus}`, 'system');

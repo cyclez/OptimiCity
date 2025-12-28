@@ -112,13 +112,13 @@ window.Actions = (function () {
             description: 'Held secret organizing meeting'
         },
         recruit: {
-            actionType: [3],
+            actionType: [4],
             power: [5, 8],
             heat: [3, 6],
             description: 'Recruited new allies'
         },
         intel: {
-            actionType: [3],
+            actionType: [4],
             power: [2, 4],
             heat: [1, 2],
             description: 'Gathered intelligence on AI Mayor'
